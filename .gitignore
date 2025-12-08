@@ -1,0 +1,103 @@
+# ============================================================================
+# Green QA Platform - Git Ignore
+# ============================================================================
+
+# Environment and secrets (NEVER commit these!)
+config/.env
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# AWS credentials
+credentials
+.aws/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node (if dashboard uses npm)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Generated test data (can be regenerated)
+dashboard/public/test-history-data.js
+
+# Logs
+*.log
+logs/
+
+# Lambda deployment packages
+*.zip
+lambda/*/package/
+
+# SAM build artifacts
+.aws-sam/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+
+# Local testing
+test_output/
+tmp/
+temp/

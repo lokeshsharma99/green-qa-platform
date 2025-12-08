@@ -6,6 +6,7 @@ ENHANCED VERSION integrating knowledge base tools:
 - CATS scheduling logic (Section 3)
 - Cloud Carbon Footprint carbon savings calculation
 - GSF SCI-based optimization
+- AWS Pipeline Triggering (CodePipeline, CodeBuild, Step Functions)
 
 References:
 - carbonaware_scheduler: Multi-cloud scheduling patterns
@@ -18,11 +19,26 @@ import boto3
 import json
 import os
 import logging
+import sys
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
+
+# Add parent paths for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+# Import pipeline trigger module
+try:
+    from lambda.schedule_optimizer.pipeline_trigger import (
+        execute_pipeline_action,
+        TriggerResult,
+        TriggerStatus,
+    )
+    PIPELINE_TRIGGER_AVAILABLE = True
+except ImportError:
+    PIPELINE_TRIGGER_AVAILABLE = False
 
 # Configure logging
 logger = logging.getLogger()
@@ -115,6 +131,7 @@ class SchedulingRecommendation:
     estimated_savings_g: Optional[float] = None
     estimated_savings_percent: Optional[float] = None
     confidence: str = "medium"
+    pipeline_trigger_result: Optional[Dict] = None
     
     def to_dict(self) -> Dict:
         result = {
@@ -141,6 +158,9 @@ class SchedulingRecommendation:
         
         if self.estimated_savings_percent is not None:
             result['estimated_savings_percent'] = round(self.estimated_savings_percent, 1)
+        
+        if self.pipeline_trigger_result:
+            result['pipeline_trigger'] = self.pipeline_trigger_result
         
         return result
 
@@ -359,6 +379,44 @@ def find_lowest_carbon_region(
     ]
 
 
+def _trigger_pipeline_for_recommendation(
+    recommendation: SchedulingRecommendation,
+    region: str,
+    workload_type: str = None
+) -> SchedulingRecommendation:
+    """
+    Helper to trigger pipeline based on recommendation.
+    Adds pipeline_trigger_result to the recommendation.
+    """
+    if not PIPELINE_TRIGGER_AVAILABLE:
+        recommendation.pipeline_trigger_result = {
+            "status": "skipped",
+            "message": "Pipeline trigger module not available"
+        }
+        return recommendation
+    
+    try:
+        trigger_result = execute_pipeline_action(
+            recommendation=recommendation.recommendation.value,
+            region=region,
+            workload_type=workload_type,
+            optimal_window_start=recommendation.optimal_window.start_time if recommendation.optimal_window else None,
+            carbon_intensity=recommendation.current_intensity,
+            estimated_savings=recommendation.estimated_savings_percent
+        )
+        recommendation.pipeline_trigger_result = trigger_result.to_dict()
+    except Exception as e:
+        logger.error(f"Pipeline trigger failed: {e}")
+        recommendation.pipeline_trigger_result = {
+            "status": "failed",
+            "service": "Unknown",
+            "message": "Pipeline trigger failed",
+            "error": str(e)
+        }
+    
+    return recommendation
+
+
 def get_scheduling_recommendation(
     region: str,
     duration_minutes: int = 30,
@@ -366,7 +424,9 @@ def get_scheduling_recommendation(
     memory_gb: float = 4.0,
     allow_defer: bool = True,
     allow_relocate: bool = False,
-    max_defer_hours: int = MAX_DEFER_HOURS
+    max_defer_hours: int = MAX_DEFER_HOURS,
+    workload_type: str = None,
+    trigger_pipeline: bool = False
 ) -> SchedulingRecommendation:
     """
     Get intelligent scheduling recommendation.
@@ -375,6 +435,17 @@ def get_scheduling_recommendation(
     - carbonaware_scheduler_client: Multi-zone optimization
     - CATS: UK-focused time-shifting
     - Cloud Carbon Footprint: Carbon calculation
+    
+    Args:
+        region: AWS region
+        duration_minutes: Expected workload duration
+        vcpu_count: Number of vCPUs
+        memory_gb: Memory in GB
+        allow_defer: Allow time-shifting recommendations
+        allow_relocate: Allow location-shifting recommendations
+        max_defer_hours: Maximum hours to defer
+        workload_type: Type of workload (for pipeline lookup)
+        trigger_pipeline: If True, actually trigger the pipeline
     
     Decision logic:
     1. If intensity is very low/low → run now
@@ -386,13 +457,16 @@ def get_scheduling_recommendation(
     carbon_data = get_carbon_data(region)
     
     if not carbon_data:
-        return SchedulingRecommendation(
+        rec = SchedulingRecommendation(
             recommendation=RecommendationType.RUN_NOW,
             reason="No carbon data available, defaulting to immediate execution",
             region=region,
             current_intensity=300,  # Fallback
             confidence="low"
         )
+        if trigger_pipeline:
+            rec = _trigger_pipeline_for_recommendation(rec, region, workload_type)
+        return rec
     
     current_intensity = float(carbon_data.get('carbon_intensity', 300))
     current_index = carbon_data.get('index') or get_carbon_index(current_intensity)
@@ -409,7 +483,7 @@ def get_scheduling_recommendation(
     # DECISION 1: Check if intensity is already low
     # ============================================================
     if current_index in [CarbonIndex.VERY_LOW.value, CarbonIndex.LOW.value]:
-        return SchedulingRecommendation(
+        rec = SchedulingRecommendation(
             recommendation=RecommendationType.RUN_NOW,
             reason=f"Carbon intensity is {current_index} ({current_intensity:.0f} gCO2/kWh) - optimal to run now",
             region=region,
@@ -417,6 +491,9 @@ def get_scheduling_recommendation(
             current_index=current_index,
             confidence="high"
         )
+        if trigger_pipeline:
+            rec = _trigger_pipeline_for_recommendation(rec, region, workload_type)
+        return rec
     
     # ============================================================
     # DECISION 2: Check if time-shifting would help
@@ -438,7 +515,7 @@ def get_scheduling_recommendation(
                     energy_kwh
                 )
                 
-                return SchedulingRecommendation(
+                rec = SchedulingRecommendation(
                     recommendation=RecommendationType.DEFER,
                     reason=f"Deferring to {optimal_window.start_time} can reduce carbon by {improvement:.0%}",
                     region=region,
@@ -449,6 +526,9 @@ def get_scheduling_recommendation(
                     estimated_savings_percent=savings_percent,
                     confidence="high"
                 )
+                if trigger_pipeline:
+                    rec = _trigger_pipeline_for_recommendation(rec, region, workload_type)
+                return rec
     
     # ============================================================
     # DECISION 3: Check if location-shifting would help
@@ -468,7 +548,7 @@ def get_scheduling_recommendation(
                     energy_kwh
                 )
                 
-                return SchedulingRecommendation(
+                rec = SchedulingRecommendation(
                     recommendation=RecommendationType.RELOCATE,
                     reason=f"Running in {best_alt['region']} would reduce carbon by {savings_percent:.0f}%",
                     region=region,
@@ -484,12 +564,15 @@ def get_scheduling_recommendation(
                     estimated_savings_percent=savings_percent,
                     confidence="medium"
                 )
+                if trigger_pipeline:
+                    rec = _trigger_pipeline_for_recommendation(rec, region, workload_type)
+                return rec
     
     # ============================================================
     # DECISION 4: No better option, run with appropriate warning
     # ============================================================
     if current_index in [CarbonIndex.HIGH.value, CarbonIndex.VERY_HIGH.value]:
-        return SchedulingRecommendation(
+        rec = SchedulingRecommendation(
             recommendation=RecommendationType.RUN_WITH_WARNING,
             reason=f"Carbon intensity is {current_index} ({current_intensity:.0f} gCO2/kWh), but no better alternatives found",
             region=region,
@@ -497,8 +580,11 @@ def get_scheduling_recommendation(
             current_index=current_index,
             confidence="medium"
         )
+        if trigger_pipeline:
+            rec = _trigger_pipeline_for_recommendation(rec, region, workload_type)
+        return rec
     
-    return SchedulingRecommendation(
+    rec = SchedulingRecommendation(
         recommendation=RecommendationType.RUN_NOW,
         reason=f"Carbon intensity is moderate ({current_intensity:.0f} gCO2/kWh), no significant benefit from deferring",
         region=region,
@@ -506,6 +592,9 @@ def get_scheduling_recommendation(
         current_index=current_index,
         confidence="medium"
     )
+    if trigger_pipeline:
+        rec = _trigger_pipeline_for_recommendation(rec, region, workload_type)
+    return rec
 
 
 # ============================================================================
@@ -571,7 +660,9 @@ def lambda_handler(event: Dict, context) -> Dict:
                 memory_gb=event.get('memory_gb', 4.0),
                 allow_defer=event.get('allow_defer', True),
                 allow_relocate=event.get('allow_relocate', False),
-                max_defer_hours=event.get('max_defer_hours', MAX_DEFER_HOURS)
+                max_defer_hours=event.get('max_defer_hours', MAX_DEFER_HOURS),
+                workload_type=event.get('workload_type'),
+                trigger_pipeline=event.get('trigger_pipeline', False)
             )
             
             return {
@@ -627,6 +718,149 @@ def lambda_handler(event: Dict, context) -> Dict:
                     'savings_g': round(savings_g, 2),
                     'savings_percent': round(savings_pct, 1)
                 })
+            }
+        
+        elif action == 'run_optimized':
+            """
+            Full workflow: Get recommendation → Trigger pipeline → Calculate SCI → Store history
+            
+            This action:
+            1. Gets scheduling recommendation (finds optimal region)
+            2. Triggers pipeline in optimal region (if enabled)
+            3. Calculates SCI for both default (eu-west-2) and optimal region
+            4. Computes carbon savings
+            5. Stores result in test history
+            
+            Returns complete execution details for UI display.
+            """
+            # Input parameters
+            test_suite = event.get('test_suite', 'Test Suite')
+            duration_minutes = event.get('duration_minutes', 60)
+            vcpu_count = event.get('vcpu_count', 2)
+            memory_gb = event.get('memory_gb', 4.0)
+            workload_type = event.get('workload_type')
+            trigger_pipeline = event.get('trigger_pipeline', False)
+            
+            # Default region for comparison
+            default_region = 'eu-west-2'
+            
+            # Step 1: Get recommendation (finds optimal region)
+            rec = get_scheduling_recommendation(
+                region=default_region,
+                duration_minutes=duration_minutes,
+                vcpu_count=vcpu_count,
+                memory_gb=memory_gb,
+                allow_defer=True,
+                allow_relocate=True,
+                workload_type=workload_type,
+                trigger_pipeline=trigger_pipeline
+            )
+            
+            # Determine optimal region from recommendation
+            if rec.recommendation == RecommendationType.RELOCATE and rec.alternative_region:
+                optimal_region = rec.alternative_region
+                optimal_intensity = rec.optimal_window.carbon_intensity if rec.optimal_window else rec.current_intensity
+            else:
+                optimal_region = rec.region
+                optimal_intensity = rec.current_intensity
+            
+            # Get default region intensity
+            default_data = get_carbon_data(default_region)
+            default_intensity = float(default_data.get('carbon_intensity', 250)) if default_data else 250
+            
+            # Step 2: Calculate SCI for both regions
+            duration_hours = duration_minutes / 60
+            pue = PUE_VALUES.get('aws', 1.135)
+            
+            # Energy calculation
+            compute_kwh = (vcpu_count * VCPU_TDP_WATTS * duration_hours) / 1000
+            memory_kwh = memory_gb * duration_hours * 0.000392
+            total_energy_kwh = (compute_kwh + memory_kwh) * pue
+            
+            # Embodied carbon
+            embodied_g = vcpu_count * duration_hours * 2.5
+            
+            # SCI for default region (eu-west-2)
+            default_operational_g = total_energy_kwh * default_intensity
+            default_sci = default_operational_g + embodied_g
+            
+            # SCI for optimal region
+            optimal_operational_g = total_energy_kwh * optimal_intensity
+            optimal_sci = optimal_operational_g + embodied_g
+            
+            # Step 3: Calculate savings
+            savings_g = default_sci - optimal_sci
+            savings_percent = (savings_g / default_sci * 100) if default_sci > 0 else 0
+            
+            # Step 4: Build result
+            result = {
+                'test_suite': test_suite,
+                'timestamp': datetime.utcnow().isoformat(),
+                
+                # Workload parameters
+                'duration_minutes': duration_minutes,
+                'vcpu_count': vcpu_count,
+                'memory_gb': memory_gb,
+                'energy_kwh': round(total_energy_kwh, 6),
+                
+                # Recommendation
+                'recommendation': rec.recommendation.value,
+                'recommendation_reason': rec.reason,
+                'confidence': rec.confidence,
+                
+                # Default region (eu-west-2) - baseline
+                'default_region': default_region,
+                'default_intensity': round(default_intensity, 1),
+                'default_sci': round(default_sci, 4),
+                
+                # Optimal region (from decision)
+                'optimal_region': optimal_region,
+                'optimal_intensity': round(optimal_intensity, 1),
+                'optimal_sci': round(optimal_sci, 4),
+                
+                # Savings
+                'savings_g': round(savings_g, 4),
+                'savings_percent': round(savings_percent, 2),
+                
+                # Pipeline trigger result
+                'pipeline_status': 'not_triggered',
+                'pipeline_execution_id': None
+            }
+            
+            # Add pipeline trigger info if available
+            if rec.pipeline_trigger_result:
+                result['pipeline_status'] = rec.pipeline_trigger_result.get('status', 'unknown')
+                result['pipeline_execution_id'] = rec.pipeline_trigger_result.get('execution_id')
+                result['pipeline_service'] = rec.pipeline_trigger_result.get('service')
+                result['pipeline_message'] = rec.pipeline_trigger_result.get('message')
+            
+            # Step 5: Store in history (if history handler is available)
+            try:
+                from lambda.api.test_history_handler import store_test_result
+                stored = store_test_result({
+                    'test_suite': test_suite,
+                    'duration_minutes': duration_minutes,
+                    'vcpu_count': vcpu_count,
+                    'memory_gb': memory_gb,
+                    'optimal_region': optimal_region,
+                    'optimal_intensity': optimal_intensity,
+                    'pipeline_status': result['pipeline_status'],
+                    'pipeline_execution_id': result.get('pipeline_execution_id', ''),
+                    'recommendation': rec.recommendation.value
+                })
+                result['history_stored'] = True
+                result['test_id'] = stored.get('test_id')
+            except Exception as e:
+                logger.warning(f"Could not store test history: {e}")
+                result['history_stored'] = False
+            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps(result)
             }
         
         else:

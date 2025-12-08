@@ -123,23 +123,29 @@ const SAMPLE_TESTS = [
 // ============================================
 
 async function loadTestHistory(limit = 50) {
-    if (!CONFIG.useRealData || API_CONFIG.baseUrl.includes('YOUR-API-ID')) {
-        console.log('ℹ️ Using sample test data (API not configured)');
-        return SAMPLE_TESTS;
+    // First, try to use generated test data (from test_e2e_dummy.py)
+    if (typeof TEST_HISTORY_DATA !== 'undefined' && TEST_HISTORY_DATA.length > 0) {
+        console.log(`✅ Loaded ${TEST_HISTORY_DATA.length} test entries from generated data`);
+        return TEST_HISTORY_DATA.slice(0, limit);
     }
     
-    try {
-        const response = await fetch(`${API_CONFIG.baseUrl}${API_CONFIG.endpoints.history}?limit=${limit}`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
-        const data = await response.json();
-        console.log(`✅ Loaded ${data.tests?.length || 0} real test executions from API`);
-        return data.tests || [];
-    } catch (error) {
-        console.error('❌ Error loading test history:', error);
-        console.log('ℹ️ Falling back to sample data');
-        return SAMPLE_TESTS;
+    // Try API if configured
+    if (CONFIG.useRealData && !API_CONFIG.baseUrl.includes('YOUR-API-ID')) {
+        try {
+            const response = await fetch(`${API_CONFIG.baseUrl}${API_CONFIG.endpoints.history}?limit=${limit}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            const data = await response.json();
+            console.log(`✅ Loaded ${data.tests?.length || 0} real test executions from API`);
+            return data.tests || [];
+        } catch (error) {
+            console.error('❌ Error loading test history:', error);
+        }
     }
+    
+    // Fallback to sample data
+    console.log('ℹ️ Using sample test data (API not configured)');
+    return SAMPLE_TESTS;
 }
 
 function calculateCarbonSavings(tests) {
@@ -1402,17 +1408,22 @@ function calculateCarbonUI() {
 // ============================================
 
 function exportCSV() {
-    const headers = ['Time', 'Test Suite', 'Region', 'Intensity (gCO2/kWh)', 'Duration', 'Carbon (g)', 'Savings (%)', 'Status'];
+    // Get current history data (from state or sample)
+    const tests = state.testHistory || SAMPLE_TESTS;
+    const headers = ['Time', 'Test Suite', 'Region', 'Intensity (gCO2/kWh)', 'Duration (min)', 'Carbon (gCO2)', 'Default SCI', 'Optimal SCI', 'Savings (gCO2)', 'Savings (%)', 'Status'];
     
-    const rows = SAMPLE_TESTS.map(test => [
-        formatDateTime(test.time),
-        test.suite,
-        test.region,
-        test.intensity,
-        test.duration,
-        test.carbon,
-        test.savings || 0,
-        test.status
+    const rows = tests.map(test => [
+        test.timestamp || formatDateTime(test.time),
+        test.test_suite || test.suite,
+        test.optimal_region || test.region,
+        test.optimal_intensity || test.intensity,
+        test.duration_minutes || test.duration,
+        (test.optimal_sci || test.carbon || 0).toFixed(2),
+        (test.default_sci || 0).toFixed(2),
+        (test.optimal_sci || 0).toFixed(2),
+        (test.savings_g || 0).toFixed(2),
+        (test.savings_percent || test.savings || 0).toFixed(1),
+        test.pipeline_status || test.status || 'unknown'
     ]);
     
     const csvContent = [
@@ -1427,6 +1438,100 @@ function exportCSV() {
     link.click();
     
     showToast('History exported to CSV', 'success');
+}
+
+// ============================================
+// History Table Rendering
+// ============================================
+
+/**
+ * Render test history table with real API data
+ * Shows: Time, Test Suite, Region, Intensity, Duration, Carbon (SCI), Savings, Status
+ * 
+ * Data comes from /history API endpoint which stores:
+ * - SCI calculation for optimal region (where test ran)
+ * - SCI calculation for default region (eu-west-2) for comparison
+ * - Carbon savings (default_sci - optimal_sci)
+ */
+function renderHistoryTable(tests) {
+    const tbody = document.getElementById('history-table');
+    if (!tbody) return;
+    
+    // Store in state for export
+    state.testHistory = tests;
+    
+    if (!tests || tests.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" style="text-align: center; padding: 40px; color: var(--grey-500);">
+                    No test history available. Run optimized tests to see results here.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = tests.map(test => {
+        // Handle both API format and sample format
+        const timestamp = test.timestamp || (test.time ? formatDateTime(test.time) : '--');
+        const suite = test.test_suite || test.suite || 'Unknown';
+        const region = test.optimal_region || test.region || 'eu-west-2';
+        const intensity = test.optimal_intensity || test.intensity || 0;
+        const duration = test.duration_minutes ? `${test.duration_minutes}m` : (test.duration || '--');
+        const carbon = test.optimal_sci || test.carbon || 0;
+        const savingsPercent = test.savings_percent || test.savings || 0;
+        const savingsG = test.savings_g || 0;
+        const status = test.pipeline_status || test.status || 'unknown';
+        
+        // Determine status badge style
+        let statusClass = '';
+        let statusLabel = status;
+        if (status === 'success' || status === 'optimized') {
+            statusClass = 'status-optimized';
+            statusLabel = 'Optimized';
+        } else if (status === 'scheduled' || status === 'deferred') {
+            statusClass = 'status-deferred';
+            statusLabel = 'Deferred';
+        } else if (status === 'skipped' || status === 'not_triggered') {
+            statusClass = 'status-normal';
+            statusLabel = 'Manual';
+        } else if (status === 'failed') {
+            statusClass = 'status-warning';
+            statusLabel = 'Failed';
+        } else {
+            statusClass = 'status-normal';
+            statusLabel = status;
+        }
+        
+        // Format timestamp for display
+        let displayTime = timestamp;
+        if (timestamp && timestamp.includes('T')) {
+            const date = new Date(timestamp);
+            displayTime = date.toLocaleString('en-GB', {
+                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+            });
+        }
+        
+        // Savings display with color
+        const savingsDisplay = savingsPercent > 0 
+            ? `<span class="savings-positive">-${savingsPercent.toFixed(1)}%</span>` 
+            : `<span class="savings-neutral">0%</span>`;
+        
+        return `
+            <tr>
+                <td class="text-mono text-sm">${displayTime}</td>
+                <td>${suite}</td>
+                <td class="text-mono">${region}</td>
+                <td class="text-mono">${intensity.toFixed(0)} <span class="text-muted">gCO₂/kWh</span></td>
+                <td class="text-mono">${duration}</td>
+                <td class="text-mono">${carbon.toFixed(2)} <span class="text-muted">gCO₂</span></td>
+                <td>${savingsDisplay}</td>
+                <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+            </tr>
+        `;
+    }).join('');
+    
+    console.log(`📊 Rendered ${tests.length} test history entries`);
 }
 
 // ============================================
