@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Profiling — ZeroCarb</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dark-mode.css">
+    <link rel="stylesheet" href="energy-profiling.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="dark-mode.js"></script>
+    <link rel="icon" href="logo.png" type="image/png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="header-inner">
+                    <a href="index.html" class="logo">
+                        <img src="logo.png" alt="ZeroCarb" class="logo-image">
+                    </a>
+                    <nav class="header-nav">
+                        <a href="index.html" class="nav-link">Dashboard</a>
+                        <a href="advanced.html" class="nav-link">Advanced</a>
+                        <a href="energy-profiling.html" class="nav-link active">Energy Profiling</a>
+                        <a href="regression-tracking.html" class="nav-link">Regression Tracking</a>
+                    </nav>
+                    <div class="header-meta">
+                        <span class="text-xs text-grey">GMT Integration</span>
+                        <span class="text-xs text-grey">Updated <span id="last-updated-time">--:--</span></span>
+                        <button class="section-action" onclick="refreshData()">Refresh</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <div class="container">
+
+                <!-- Energy Profiling Section -->
+                <section class="section" id="profiling">
+                    <div class="section-header">
+                        <span class="section-title">Energy Profiling
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">What is Energy Profiling?</div>
+                                    <div class="tooltip-content">
+                                        Detailed analysis of energy consumption broken down by hardware components (CPU, GPU, RAM, Disk, Network) 
+                                        and execution phases. Identifies which parts of your workload consume the most energy.
+                                    </div>
+                                    <div class="tooltip-breakdown">
+                                        Uses Green Metrics Tool (GMT) for:<br>
+                                        • Real hardware measurements<br>
+                                        • Component-level breakdown<br>
+                                        • Phase-by-phase analysis
+                                    </div>
+                                </div>
+                            </span>
+                        </span>
+                        <span class="section-subtitle">Component-level energy analysis with hotspot detection</span>
+                    </div>
+                    
+                    <!-- Profile Selection -->
+                    <div class="input-row">
+                        <select id="profileSelect" class="input-field">
+                            <option value="">Select workload profile
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Workload Profiles</div>
+                                        <div class="tooltip-content">
+                                            Saved energy measurements from previous workload executions. 
+                                            Select a profile to view its detailed energy breakdown.
+                                        </div>
+                                    </div>
+                                </span>
+                            </option>
+                        </select>
+                        <button id="loadProfileBtn" class="section-action">Load Profile</button>
+                    </div>
+                    
+                    <!-- Stats Row -->
+                    <div class="stats-row" id="stats-section">
+                        <div class="stat-block">
+                            <div class="stat-label">Total Energy
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Total Energy Consumption</div>
+                                        <div class="tooltip-content">
+                                            Sum of all energy consumed by all hardware components during the entire workload execution.
+                                        </div>
+                                        <div class="tooltip-breakdown">
+                                            Measured in Joules (J)<br>
+                                            1 kWh = 3,600,000 J<br>
+                                            Includes: CPU + GPU + RAM + Disk + Network
+                                        </div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="stat-value" id="totalEnergy">--</div>
+                            <div class="stat-detail" id="totalEnergyKwh">-- kWh</div>
+                        </div>
+                        <div class="stat-block">
+                            <div class="stat-label">Carbon Emissions
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">CO₂ Emissions</div>
+                                        <div class="tooltip-content">
+                                            Carbon dioxide emissions from the energy consumed, calculated using grid carbon intensity.
+                                        </div>
+                                        <div class="tooltip-breakdown">
+                                            Formula:<br>
+                                            CO₂ (g) = Energy (kWh) × 436 gCO₂/kWh<br>
+                                            (Using global average grid intensity)
+                                        </div>
+                                        <div class="tooltip-example">
+                                            Equivalent shows real-world context:<br>
+                                            • Phone charges (8g per charge)<br>
+                                            • Miles driven (404g per mile)
+                                        </div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="stat-value accent" id="totalCarbon">--</div>
+                            <div class="stat-detail" id="carbonEquivalent">--</div>
+                        </div>
+                        <div class="stat-block">
+                            <div class="stat-label">Hotspots
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Energy Hotspots</div>
+                                        <div class="tooltip-content">
+                                            Execution phases that consume more than 20% of total energy. 
+                                            These are prime candidates for optimization.
+                                        </div>
+                                        <div class="tooltip-breakdown">
+                                            Hotspot threshold: >20% of total<br>
+                                            Focus optimization efforts here for maximum impact.
+                                        </div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="stat-value" id="hotspotsCount">0</div>
+                            <div class="stat-detail">phases >20%</div>
+                        </div>
+                        <div class="stat-block">
+                            <div class="stat-label">Avg Power
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Average Power Draw</div>
+                                        <div class="tooltip-content">
+                                            Average rate of energy consumption during workload execution.
+                                        </div>
+                                        <div class="tooltip-breakdown">
+                                            Power (W) = Energy (J) ÷ Time (s)<br>
+                                            Higher power = faster but more energy-intensive<br>
+                                            Lower power = slower but more efficient
+                                        </div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="stat-value" id="avgPower">--</div>
+                            <div class="stat-detail">watts</div>
+                        </div>
+                    </div>
+
+                    
+                    <!-- Component Breakdown -->
+                    <div class="section-content">
+                        <h3>Component Breakdown
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">Hardware Components</div>
+                                    <div class="tooltip-content">
+                                        Energy consumption broken down by hardware component. 
+                                        Shows which parts of your system consume the most energy.
+                                    </div>
+                                    <div class="tooltip-breakdown">
+                                        Components measured:<br>
+                                        • CPU: Processor computations<br>
+                                        • GPU: Graphics/parallel processing<br>
+                                        • RAM: Memory operations<br>
+                                        • Disk: Storage I/O<br>
+                                        • Network: Data transfer
+                                    </div>
+                                </div>
+                            </span>
+                        </h3>
+                        <div class="chart-wrapper">
+                            <div style="height: 300px;">
+                                <canvas id="componentChart"></canvas>
+                            </div>
+                        </div>
+                        <div id="componentLegend" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1px; background: var(--grey-200); border: 1px solid var(--grey-200);"></div>
+                    </div>
+                    
+                    <!-- Energy Hotspots -->
+                    <div class="section-content">
+                        <h3>Energy Hotspots
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">Identifying Hotspots</div>
+                                    <div class="tooltip-content">
+                                        Execution phases that consume disproportionately high energy. 
+                                        Optimizing these phases yields the biggest energy savings.
+                                    </div>
+                                    <div class="tooltip-example">
+                                        Example: If "data_processing" phase uses 35% of total energy, 
+                                        optimizing it could reduce overall consumption by up to 35%.
+                                    </div>
+                                </div>
+                            </span>
+                        </h3>
+                        <p class="text-sm text-muted">Phases consuming >20% of total energy</p>
+                        <div id="hotspotsContainer"></div>
+                    </div>
+                    
+                    <!-- Phase Timeline -->
+                    <div class="section-content">
+                        <h3>Phase Timeline
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">Execution Phases</div>
+                                    <div class="tooltip-content">
+                                        Energy consumption over time, broken down by execution phase. 
+                                        Shows when and where energy is consumed during workload execution.
+                                    </div>
+                                    <div class="tooltip-breakdown">
+                                        Common phases:<br>
+                                        • Initialization: Setup and loading<br>
+                                        • Processing: Main computation<br>
+                                        • I/O: Data read/write<br>
+                                        • Cleanup: Finalization
+                                    </div>
+                                </div>
+                            </span>
+                        </h3>
+                        <div class="chart-wrapper">
+                            <div style="height: 300px;">
+                                <canvas id="phaseChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Optimization Recommendations -->
+                    <div class="section-content">
+                        <h3>Optimization Recommendations
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">Actionable Optimizations</div>
+                                    <div class="tooltip-content">
+                                        Specific suggestions to reduce energy consumption based on your profile. 
+                                        Prioritized by potential impact.
+                                    </div>
+                                    <div class="tooltip-example">
+                                        Examples:<br>
+                                        • Reduce CPU-intensive operations<br>
+                                        • Optimize database queries<br>
+                                        • Cache frequently accessed data<br>
+                                        • Batch network requests
+                                    </div>
+                                </div>
+                            </span>
+                        </h3>
+                        <div id="recommendationsContainer"></div>
+                    </div>
+                    
+                    <!-- Test Suite Optimizer -->
+                    <div class="section-divider">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+                            <h3 style="margin-bottom: 0;">Test Suite Optimizer
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Intelligent Test Suite Analysis</div>
+                                        <div class="tooltip-content">
+                                            Analyzes your test suite and provides actionable recommendations to reduce energy consumption. 
+                                            Identifies opportunities for parallelization, caching, resource optimization, and more.
+                                        </div>
+                                        <div class="tooltip-breakdown">
+                                            Analyzes 7 categories:<br>
+                                            • Parallelization (30-50% savings)<br>
+                                            • Test Selection (smart filtering)<br>
+                                            • Resource Optimization (CPU/RAM/Disk)<br>
+                                            • Execution Order (consolidate setup)<br>
+                                            • Cleanup (prevent leaks)<br>
+                                            • Caching (eliminate redundancy)<br>
+                                            • Infrastructure (right-sizing)
+                                        </div>
+                                    </div>
+                                </span>
+                            </h3>
+                            <button id="runOptimizerBtn" class="section-action">Analyze Test Suite</button>
+                        </div>
+                        
+                        <div id="optimizerResults" style="display: none;">
+                            <!-- Potential Savings Summary -->
+                            <div class="stats-row" style="margin-bottom: 24px;">
+                                <div class="stat-block">
+                                    <div class="stat-label">Total Potential Savings</div>
+                                    <div class="stat-value accent" id="potentialSavingsCO2">--</div>
+                                    <div class="stat-detail" id="potentialSavingsEnergy">--</div>
+                                </div>
+                                <div class="stat-block">
+                                    <div class="stat-label">Savings Percentage</div>
+                                    <div class="stat-value" id="potentialSavingsPercent">--</div>
+                                    <div class="stat-detail" id="potentialSavingsEquivalent">--</div>
+                                </div>
+                                <div class="stat-block">
+                                    <div class="stat-label">Recommendations</div>
+                                    <div class="stat-value" id="recommendationCount">0</div>
+                                    <div class="stat-detail" id="quickWinsCount">-- quick wins</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Quick Wins -->
+                            <div class="section-content">
+                                <h4>⚡ Quick Wins (High Impact, Low Effort)</h4>
+                                <div id="quickWinsContainer"></div>
+                            </div>
+                            
+                            <!-- All Recommendations -->
+                            <div class="section-content">
+                                <h4>All Recommendations</h4>
+                                <div id="allRecommendationsContainer"></div>
+                            </div>
+                            
+                            <!-- Implementation Roadmap -->
+                            <div class="section-content">
+                                <h4>Implementation Roadmap</h4>
+                                <div id="roadmapContainer"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-inner">
+                    <span class="footer-text">Energy profiling powered by Green Metrics Tool integration</span>
+                    <div class="footer-links">
+                        <a href="index.html" class="footer-link">Dashboard</a>
+                        <a href="advanced.html" class="footer-link">Advanced</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="energy-profiling.js?v=3"></script>
+</body>
+</html>

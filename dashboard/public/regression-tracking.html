@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regression Tracking — ZeroCarb</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dark-mode.css">
+    <link rel="stylesheet" href="regression-tracking.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="dark-mode.js"></script>
+    <link rel="icon" href="logo.png" type="image/png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="header-inner">
+                    <a href="index.html" class="logo">
+                        <img src="logo.png" alt="ZeroCarb" class="logo-image">
+                    </a>
+                    <nav class="header-nav">
+                        <a href="index.html" class="nav-link">Dashboard</a>
+                        <a href="advanced.html" class="nav-link">Advanced</a>
+                        <a href="energy-profiling.html" class="nav-link">Energy Profiling</a>
+                        <a href="regression-tracking.html" class="nav-link active">Regression Tracking</a>
+                    </nav>
+                    <div class="header-meta">
+                        <span class="text-xs text-grey">GMT Integration</span>
+                        <span class="text-xs text-grey">Updated <span id="last-updated-time">--:--</span></span>
+                        <button class="section-action" onclick="refreshData()">Refresh</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <div class="container">
+                
+                <!-- Regression Tracking Section -->
+                <section class="section" id="regression">
+                    <div class="section-header">
+                        <span class="section-title">Energy Regression Tracking
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">What is Energy Regression Tracking?</div>
+                                    <div class="tooltip-content">
+                                        Monitors energy consumption across code commits to detect performance regressions. 
+                                        A regression occurs when a code change increases energy usage by more than 5%, 
+                                        indicating potential inefficiencies that should be reviewed.
+                                    </div>
+                                </div>
+                            </span>
+                        </span>
+                        <span class="section-subtitle">Track energy consumption across commits and detect regressions</span>
+                    </div>
+                    
+                    <!-- Configuration -->
+                    <div class="input-row" style="margin-bottom: 24px;">
+                        <div style="flex: 1;">
+                            <label class="text-xs text-muted" style="display: block; margin-bottom: 4px;">Branch
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Git Branch</div>
+                                        <div class="tooltip-content">
+                                            Select which Git branch to track. Each branch maintains its own baseline and regression history.
+                                        </div>
+                                    </div>
+                                </span>
+                            </label>
+                            <select id="branchSelect" class="input-field">
+                                <option value="main">main</option>
+                                <option value="develop">develop</option>
+                                <option value="feature/optimization">feature/optimization</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1;">
+                            <label class="text-xs text-muted" style="display: block; margin-bottom: 4px;">Workload Type
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Workload Types</div>
+                                        <div class="tooltip-content">
+                                            Different types of operations to measure. Each workload has its own baseline since they consume different amounts of energy.
+                                        </div>
+                                        <div class="tooltip-breakdown">
+                                            • Test Suite: Running unit/integration tests<br>
+                                            • Build Process: Compiling code<br>
+                                            • Integration Tests: End-to-end testing
+                                        </div>
+                                    </div>
+                                </span>
+                            </label>
+                            <select id="workloadSelect" class="input-field">
+                                <option value="test_suite">Test Suite</option>
+                                <option value="build">Build Process</option>
+                                <option value="integration">Integration Tests</option>
+                            </select>
+                        </div>
+                        <button id="loadDataBtn" class="section-action" style="align-self: flex-end;">Load Data</button>
+                    </div>
+                    
+                    <!-- Stats Row -->
+                    <div class="stats-row" id="stats-section">
+                        <div class="stat-block">
+                            <div class="stat-label">Baseline
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Baseline Energy</div>
+                                        <div class="tooltip-content">
+                                            The target energy consumption for this workload. All commits are compared against this baseline to detect regressions.
+                                        </div>
+                                        <div class="tooltip-breakdown">
+                                            CO₂ Calculation:<br>
+                                            Energy (J) ÷ 3,600,000 × 436 gCO₂/kWh<br>
+                                            (Using global average grid intensity)
+                                        </div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="stat-value" id="baselineCarbon">--</div>
+                            <div class="stat-detail" id="baselineValue">-- J</div>
+                        </div>
+                        <div class="stat-block">
+                            <div class="stat-label">Latest
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Latest Commit</div>
+                                        <div class="tooltip-content">
+                                            Energy consumption and CO₂ emissions of the most recent commit. Compare this to the baseline to see if performance improved or degraded.
+                                        </div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="stat-value" id="latestCarbon">--</div>
+                            <div class="stat-detail" id="latestValue">-- J</div>
+                        </div>
+                        <div class="stat-block">
+                            <div class="stat-label">Trend
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Energy Trend</div>
+                                        <div class="tooltip-content">
+                                            Overall direction of energy consumption across recent commits. 
+                                            "Improving" means energy is decreasing, "Degrading" means it's increasing.
+                                        </div>
+                                        <div class="tooltip-breakdown">
+                                            Slope shows average change per commit.<br>
+                                            Calculated using linear regression.
+                                        </div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="stat-value" id="trendValue">--</div>
+                            <div class="stat-detail" id="trendDetail">--</div>
+                        </div>
+                        <div class="stat-block">
+                            <div class="stat-label">Regressions
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">?</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">What is a Regression?</div>
+                                        <div class="tooltip-content">
+                                            A commit that increases energy consumption by more than 5% compared to baseline. 
+                                            These should be reviewed for performance issues.
+                                        </div>
+                                        <div class="tooltip-breakdown">
+                                            Severity Levels:<br>
+                                            • Minor: 5-10% increase<br>
+                                            • Major: 10-25% increase<br>
+                                            • Critical: >25% increase
+                                        </div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="stat-value accent" id="regressionsCount">0</div>
+                            <div class="stat-detail">detected</div>
+                        </div>
+                    </div>
+
+                    <!-- Trend Chart -->
+                    <div style="margin-top: 32px;">
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Energy Trend Over Commits
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">Reading the Chart</div>
+                                    <div class="tooltip-content">
+                                        Black line shows energy consumption per commit. Green dashed line is the baseline target. 
+                                        Colored dots indicate status: green (improved), red (critical regression), orange (warning).
+                                    </div>
+                                    <div class="tooltip-example">
+                                        Hover over points to see:<br>
+                                        • Energy in Joules (J)<br>
+                                        • CO₂ emissions<br>
+                                        • % change from baseline
+                                    </div>
+                                </div>
+                            </span>
+                        </h3>
+                        <div style="height: 300px;">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Recent Commits -->
+                    <div style="margin-top: 32px;">
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Recent Commits
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">Commit Status Badges</div>
+                                    <div class="tooltip-content">
+                                        Each commit shows its energy consumption, CO₂ emissions, and comparison to baseline.
+                                    </div>
+                                    <div class="tooltip-breakdown">
+                                        Status Badges:<br>
+                                        • Improved: >5% reduction<br>
+                                        • Stable: Within ±5%<br>
+                                        • Warning: 5-10% increase<br>
+                                        • Critical: >10% increase
+                                    </div>
+                                </div>
+                            </span>
+                        </h3>
+                        <div id="commitsContainer"></div>
+                    </div>
+
+                    <!-- Regressions Alert -->
+                    <div style="margin-top: 32px;">
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Detected Regressions
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">Understanding Regressions</div>
+                                    <div class="tooltip-content">
+                                        Regressions are commits that significantly increased energy consumption. 
+                                        Review these commits to identify and fix performance issues.
+                                    </div>
+                                    <div class="tooltip-breakdown">
+                                        Each regression shows:<br>
+                                        • Commit SHA (identifier)<br>
+                                        • Energy & CO₂ increase<br>
+                                        • Real-world equivalent<br>
+                                        (e.g., "12 phone charges")
+                                    </div>
+                                </div>
+                            </span>
+                        </h3>
+                        <div id="regressionsContainer"></div>
+                    </div>
+
+                    <!-- Performance Budget -->
+                    <div style="margin-top: 32px;">
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Performance Budget
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">What is a Performance Budget?</div>
+                                    <div class="tooltip-content">
+                                        Set a maximum energy consumption limit for your workload. The system will alert you 
+                                        if commits exceed this budget, helping enforce energy efficiency standards.
+                                    </div>
+                                    <div class="tooltip-example">
+                                        Example: Set budget to 5000 J<br>
+                                        If commit uses 5500 J → Budget exceeded by 10%<br>
+                                        If commit uses 4500 J → Within budget, 10% headroom
+                                    </div>
+                                </div>
+                            </span>
+                        </h3>
+                        <div style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px;">
+                            <div style="flex: 1;">
+                                <label class="text-xs text-muted" style="display: block; margin-bottom: 4px;">Budget (J)
+                                    <span class="tooltip-trigger">
+                                        <span class="info-icon">?</span>
+                                        <div class="tooltip">
+                                            <div class="tooltip-title">Energy Units</div>
+                                            <div class="tooltip-content">
+                                                J = Joules, the standard unit of energy.<br>
+                                                1 kWh = 3,600,000 J<br>
+                                                Typical test suite: 1,000-10,000 J
+                                            </div>
+                                        </div>
+                                    </span>
+                                </label>
+                                <input type="number" id="budgetInput" class="input-field" placeholder="e.g., 5000">
+                            </div>
+                            <button id="setBudgetBtn" class="section-action">Set Budget</button>
+                        </div>
+                        <div id="budgetStatus"></div>
+                    </div>
+
+                    <!-- CI/CD Integration -->
+                    <div style="margin-top: 32px;">
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">CI/CD Integration
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">Automated Regression Detection</div>
+                                    <div class="tooltip-content">
+                                        Integrate energy regression checks into your CI/CD pipeline. 
+                                        Builds will fail if energy consumption exceeds the threshold, 
+                                        preventing inefficient code from being merged.
+                                    </div>
+                                    <div class="tooltip-breakdown">
+                                        Parameters:<br>
+                                        • --commit: Git commit SHA<br>
+                                        • --branch: Branch name<br>
+                                        • --workload: Test type<br>
+                                        • --threshold: Max % increase (e.g., 5.0 = 5%)
+                                    </div>
+                                </div>
+                            </span>
+                        </h3>
+                        <p class="text-sm text-muted" style="margin-bottom: 16px;">Add this to your CI/CD pipeline to automatically detect regressions</p>
+                        <div style="position: relative;">
+                            <pre style="background: var(--grey-900); color: var(--grey-100); padding: 16px; border-radius: 4px; overflow-x: auto; font-family: var(--font-mono); font-size: 13px; line-height: 1.6;"><code id="cicdCode"># GitHub Actions Example
+- name: Check Energy Regression
+  run: |
+    python check_regression.py \
+      --commit ${{ github.sha }} \
+      --branch ${{ github.ref_name }} \
+      --workload test_suite \
+      --threshold 5.0</code></pre>
+                            <button id="copyCicdBtn" class="section-action" style="position: absolute; top: 16px; right: 16px;">Copy</button>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-inner">
+                    <span class="footer-text">Energy regression tracking powered by Green Metrics Tool integration</span>
+                    <div class="footer-links">
+                        <a href="index.html" class="footer-link">Dashboard</a>
+                        <a href="advanced.html" class="footer-link">Advanced</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="regression-tracking.js"></script>
+</body>
+</html>

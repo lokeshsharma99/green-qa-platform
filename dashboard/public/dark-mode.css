@@ -1,0 +1,558 @@
+/**
+ * Dark Mode Theme
+ * System-wide dark mode with improved contrast ratios
+ */
+
+/* Dark Mode Variables */
+[data-theme="dark"] {
+    /* Background colors */
+    --black: #ffffff;
+    --white: #0a0a0a;
+    --grey-100: #1a1a1a;
+    --grey-200: #262626;
+    --grey-300: #404040;
+    --grey-400: #737373;
+    --grey-500: #a3a3a3;
+    --grey-600: #d4d4d4;
+    --grey-700: #e5e5e5;
+    --grey-800: #f5f5f5;
+    --grey-900: #fafafa;
+    
+    /* Accent colors - slightly brighter for dark mode */
+    --accent: #34d399;
+    --accent-muted: #22c55e;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    
+    /* Chart colors for dark mode */
+    --chart-grid: #262626;
+    --chart-text: #a3a3a3;
+    --chart-line: #404040;
+}
+
+/* Light Mode - Enhanced Contrast */
+[data-theme="light"] {
+    /* Keep existing light mode but enhance contrast */
+    --black: #000000;
+    --white: #ffffff;
+    --grey-100: #f5f5f5;
+    --grey-200: #e5e5e5;
+    --grey-300: #d4d4d4;
+    --grey-400: #a3a3a3;
+    --grey-500: #737373;
+    --grey-600: #525252;
+    --grey-700: #404040;
+    --grey-800: #262626;
+    --grey-900: #171717;
+    
+    --accent: #22c55e;
+    --accent-muted: #16a34a;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    
+    /* Chart colors for light mode */
+    --chart-grid: #e5e5e5;
+    --chart-text: #737373;
+    --chart-line: #d4d4d4;
+}
+
+/* Dark Mode Toggle Button - Minimal Design */
+.theme-toggle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: var(--text-xs);
+    color: var(--grey-600);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: var(--font-sans);
+}
+
+.theme-toggle:hover {
+    color: var(--black);
+}
+
+.theme-toggle-icon {
+    font-size: 11px;
+    font-weight: 400;
+    transition: opacity 0.15s ease;
+}
+
+.theme-toggle:hover .theme-toggle-icon {
+    opacity: 0.7;
+}
+
+.theme-toggle-text {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+/* Dark mode specific adjustments */
+[data-theme="dark"] body {
+    background: var(--white);
+    color: var(--black);
+}
+
+[data-theme="dark"] .header {
+    background: var(--white);
+    border-bottom-color: var(--grey-200);
+    box-shadow: 0 1px 3px rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .stat-block,
+[data-theme="dark"] .region-item,
+[data-theme="dark"] .global-region-item,
+[data-theme="dark"] .insight-card,
+[data-theme="dark"] .chart-container,
+[data-theme="dark"] .calculator,
+[data-theme="dark"] .modal,
+[data-theme="dark"] .recommendation-card,
+[data-theme="dark"] .roadmap-phase {
+    background: var(--grey-100);
+    border-color: var(--grey-200);
+}
+
+[data-theme="dark"] .region-item:hover,
+[data-theme="dark"] .global-region-item:hover {
+    background: var(--grey-200);
+}
+
+[data-theme="dark"] .calc-results {
+    background: var(--grey-200);
+}
+
+[data-theme="dark"] .input-field,
+[data-theme="dark"] .insight-region-select {
+    background: var(--grey-100);
+    border-color: var(--grey-300);
+    color: var(--black);
+}
+
+[data-theme="dark"] .input-field:focus,
+[data-theme="dark"] .insight-region-select:focus {
+    border-color: var(--accent);
+}
+
+/* Dark mode tooltips */
+[data-theme="dark"] .tooltip {
+    background: var(--grey-800);
+    color: var(--grey-100);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .tooltip::after {
+    border-top-color: var(--grey-800);
+}
+
+[data-theme="dark"] .info-icon {
+    background: var(--grey-300);
+    color: var(--grey-700);
+}
+
+[data-theme="dark"] .info-icon:hover {
+    background: var(--grey-400);
+    color: var(--grey-800);
+}
+
+/* Dark mode tables */
+[data-theme="dark"] .data-table th {
+    background: var(--grey-200);
+    border-bottom-color: var(--grey-300);
+}
+
+[data-theme="dark"] .data-table td {
+    border-bottom-color: var(--grey-200);
+}
+
+/* Dark mode charts */
+[data-theme="dark"] .chart-body {
+    background: var(--grey-100);
+}
+
+[data-theme="dark"] .chart-stat {
+    background: var(--grey-100);
+}
+
+/* Dark mode modal */
+[data-theme="dark"] .modal-overlay {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="dark"] .modal-stat {
+    background: var(--grey-100);
+}
+
+/* Dark mode status badges */
+[data-theme="dark"] .status-badge.excellent {
+    background: #10b98130;
+    color: #34d399;
+}
+
+[data-theme="dark"] .status-badge.good {
+    background: #22c55e30;
+    color: #34d399;
+}
+
+[data-theme="dark"] .status-badge.moderate {
+    background: #eab30830;
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .status-badge.high {
+    background: #f9731630;
+    color: #fb923c;
+}
+
+[data-theme="dark"] .status-badge.very-high {
+    background: #ef444430;
+    color: #f87171;
+}
+
+/* Dark mode recommendation cards */
+[data-theme="dark"] .recommendation-card.quick-win {
+    border-left-color: var(--accent);
+}
+
+[data-theme="dark"] .recommendation-code pre {
+    background: var(--grey-900);
+    color: var(--grey-100);
+}
+
+/* Dark mode priority badges */
+[data-theme="dark"] .recommendation-badge.critical {
+    background: #fee2e230;
+    color: #f87171;
+}
+
+[data-theme="dark"] .recommendation-badge.high {
+    background: #fef3c730;
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .recommendation-badge.medium {
+    background: #dbeafe30;
+    color: #60a5fa;
+}
+
+[data-theme="dark"] .recommendation-badge.low {
+    background: #f3f4f630;
+    color: var(--grey-500);
+}
+
+/* Dark mode priority titles */
+[data-theme="dark"] .priority-title.critical {
+    background: #fee2e230;
+    color: #f87171;
+}
+
+[data-theme="dark"] .priority-title.high {
+    background: #fef3c730;
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .priority-title.medium {
+    background: #dbeafe30;
+    color: #60a5fa;
+}
+
+[data-theme="dark"] .priority-title.low {
+    background: #f3f4f630;
+    color: var(--grey-500);
+}
+
+/* Dark mode hotspot cards */
+[data-theme="dark"] .hotspot-card {
+    background: var(--grey-100);
+    border-color: var(--grey-200);
+}
+
+[data-theme="dark"] .hotspot-card.critical {
+    border-left-color: var(--danger);
+}
+
+[data-theme="dark"] .hotspot-card.major {
+    border-left-color: var(--warning);
+}
+
+[data-theme="dark"] .hotspot-card.minor {
+    border-left-color: var(--accent);
+}
+
+/* Dark mode map */
+[data-theme="dark"] #world-map-container {
+    background: var(--grey-100);
+}
+
+[data-theme="dark"] #map-legend,
+[data-theme="dark"] #map-controls button {
+    background: var(--grey-100);
+    color: var(--black);
+    border-color: var(--grey-200);
+}
+
+[data-theme="dark"] #map-controls button {
+    border-bottom-color: var(--grey-200);
+}
+
+[data-theme="dark"] #map-tooltip {
+    background: rgba(10, 10, 10, 0.95);
+    color: var(--grey-800);
+}
+
+/* Dark mode legend items */
+[data-theme="dark"] .legend-item-clickable:hover {
+    background: var(--grey-200);
+}
+
+/* Dark mode toast */
+[data-theme="dark"] .toast {
+    background: var(--grey-900);
+    color: var(--grey-100);
+}
+
+/* Dark mode empty state */
+[data-theme="dark"] .empty-state {
+    color: var(--grey-500);
+}
+
+/* Dark mode recommendation savings */
+[data-theme="dark"] .recommendation-savings {
+    background: var(--grey-200);
+}
+
+/* Dark mode roadmap */
+[data-theme="dark"] .global-region-footer {
+    border-top-color: var(--grey-200);
+}
+
+/* Smooth theme transition */
+* {
+    transition: background-color 0.3s ease, 
+                border-color 0.3s ease, 
+                color 0.3s ease;
+}
+
+/* Preserve transitions for interactive elements */
+.theme-toggle,
+.nav-link,
+.section-action,
+.btn-text,
+.region-item,
+.global-region-item,
+.input-field {
+    transition: all 0.3s ease;
+}
+
+/* Chart.js dark mode support */
+[data-theme="dark"] canvas {
+    filter: brightness(0.9);
+}
+
+/* Improved contrast for text in dark mode */
+[data-theme="dark"] .text-grey {
+    color: var(--grey-500);
+}
+
+[data-theme="dark"] .text-muted {
+    color: var(--grey-400);
+}
+
+/* Dark mode section headers */
+[data-theme="dark"] .section-header {
+    border-bottom-color: var(--grey-200);
+}
+
+/* Dark mode stats row */
+[data-theme="dark"] .stats-row {
+    background: var(--grey-200);
+    border-color: var(--grey-200);
+}
+
+/* Dark mode region grid */
+[data-theme="dark"] .region-grid,
+[data-theme="dark"] .global-region-grid {
+    background: var(--grey-200);
+    border-color: var(--grey-200);
+}
+
+/* Dark mode calculator */
+[data-theme="dark"] .calculator-body {
+    background: var(--grey-200);
+}
+
+[data-theme="dark"] .calc-inputs {
+    background: var(--grey-100);
+}
+
+/* Dark mode chart footer */
+[data-theme="dark"] .chart-footer {
+    background: var(--grey-200);
+    border-top-color: var(--grey-200);
+}
+
+/* Dark mode modal sections */
+[data-theme="dark"] .modal-stat-grid {
+    background: var(--grey-200);
+    border-color: var(--grey-200);
+}
+
+[data-theme="dark"] .modal-info-row {
+    border-bottom-color: var(--grey-200);
+}
+
+/* Dark mode footer */
+[data-theme="dark"] .footer {
+    border-top-color: var(--grey-200);
+}
+
+/* Dark mode mix legend */
+[data-theme="dark"] .mix-legend {
+    border-top-color: var(--grey-200);
+}
+
+/* Dark mode table container */
+[data-theme="dark"] .table-container {
+    border-color: var(--grey-200);
+}
+
+/* Dark mode insights grid */
+[data-theme="dark"] .insight-card {
+    border-color: var(--grey-200);
+}
+
+/* Dark mode comparison container */
+[data-theme="dark"] .comparison-container {
+    border-color: var(--grey-200);
+}
+
+/* Accessibility: Ensure sufficient contrast */
+[data-theme="dark"] .stat-value,
+[data-theme="dark"] .region-value,
+[data-theme="dark"] .global-region-intensity-value,
+[data-theme="dark"] .insight-value {
+    color: var(--black);
+}
+
+[data-theme="dark"] .stat-value.accent,
+[data-theme="dark"] .region-value.very-low,
+[data-theme="dark"] .region-value.low,
+[data-theme="dark"] .global-region-intensity-value.very-low,
+[data-theme="dark"] .global-region-intensity-value.low,
+[data-theme="dark"] .insight-value.accent {
+    color: var(--accent);
+}
+
+/* Dark mode for specific intensity colors */
+[data-theme="dark"] .region-value.moderate,
+[data-theme="dark"] .global-region-intensity-value.moderate {
+    color: var(--grey-700);
+}
+
+[data-theme="dark"] .region-value.high,
+[data-theme="dark"] .global-region-intensity-value.high {
+    color: var(--warning);
+}
+
+[data-theme="dark"] .region-value.very-high,
+[data-theme="dark"] .global-region-intensity-value.very-high {
+    color: var(--danger);
+}
+
+/* Dark mode savings positive */
+[data-theme="dark"] .savings-positive {
+    color: var(--accent);
+}
+
+/* Dark mode status text */
+[data-theme="dark"] .status-text.optimized {
+    color: var(--accent);
+}
+
+[data-theme="dark"] .status-text.deferred {
+    color: var(--warning);
+}
+
+[data-theme="dark"] .status-text.normal {
+    color: var(--grey-600);
+}
+
+/* Dark mode generation mix */
+[data-theme="dark"] .generation-mix-container {
+    background: var(--grey-100);
+    border-color: var(--grey-200);
+}
+
+[data-theme="dark"] .generation-mix-chart,
+[data-theme="dark"] .generation-mix-details {
+    background: var(--grey-100);
+    border-color: var(--grey-200);
+}
+
+[data-theme="dark"] .generation-mix-item {
+    background: var(--grey-200);
+    border-color: var(--grey-300);
+}
+
+[data-theme="dark"] .generation-mix-item:hover {
+    background: var(--grey-300);
+    border-color: var(--grey-400);
+}
+
+[data-theme="dark"] .generation-mix-footer {
+    border-top-color: var(--grey-200);
+}
+
+/* Dark mode result values */
+[data-theme="dark"] .result-value {
+    color: var(--black);
+}
+
+[data-theme="dark"] .result-item.highlight .result-value {
+    color: var(--accent);
+}
+
+/* Dark mode chart stat values */
+[data-theme="dark"] .chart-stat-value {
+    color: var(--black);
+}
+
+[data-theme="dark"] .chart-stat-value.green {
+    color: var(--accent);
+}
+
+[data-theme="dark"] .chart-stat-value.red {
+    color: var(--danger);
+}
+
+/* Dark mode modal stat values */
+[data-theme="dark"] .modal-stat-value {
+    color: var(--black);
+}
+
+[data-theme="dark"] .modal-stat-value.accent {
+    color: var(--accent);
+}
+
+/* Dark mode nav link active */
+[data-theme="dark"] .nav-link.active::after {
+    background: var(--accent);
+}
+
+/* Dark mode status dot */
+[data-theme="dark"] .status-dot.live {
+    background: var(--accent);
+}
+
+/* Dark mode source indicator */
+[data-theme="dark"] .source-indicator.live {
+    background: var(--accent);
+}

@@ -1,0 +1,3165 @@
+Green Federated Learning via Carbon-Aware Client and Time Slot Scheduling † †
+Daniel Richards Arputharaj1, Charlotte Rodriguez12, Angelo Rodio3, Giovanni Neglia1
+1Inria Centre at Université Côte d’Azur, France. Email: {firstname.lastname}@inria.fr,
+2Accenture, France. Email: c.q.rodriguez@accenture.com,
+3Department of Electrical Engineering (ISY), Linköping University, Sweden. Email: angelo.rodio@liu.se
+Abstract
+Training large-scale machine learning models incurs substantial carbon emissions. Federated Learning (FL), by distributing computation across geographically dispersed clients, offers a natural framework to leverage regional and temporal variations in Carbon Intensity (CI). This paper investigates how to reduce emissions in FL through carbon-aware client selection and training scheduling. We first quantify the emission savings of a carbon-aware scheduling policy that leverages slack time—permitting a modest extension of the training duration so that clients can defer local training rounds to lower-carbon periods. We then examine the performance trade-offs of such scheduling which stem from statistical heterogeneity among clients, selection bias in participation, and temporal correlation in model updates. To leverage these trade-offs, we construct a carbon-aware scheduler that integrates slack time, 
+α
+-fair carbon allocation, and a global fine-tuning phase. Experiments on real-world CI data show that our scheduler outperforms slack-agnostic baselines, achieving higher model accuracy across a wide range of carbon budgets, with especially strong gains under tight carbon constraints.
+
+IIntroduction
+With the growing complexity of machine learning (ML) models, training requires access to large-scale, high-quality datasets and high-throughput computing infrastructure—often involving hundreds of terabytes of data and thousands of GPU-hours over days or even weeks of continuous execution [1].
+
+In terms of energy consumption, training a baseline convolutional neural network such as ResNet-50 on the ImageNet dataset for a single-GPU, 90-epoch run consumes 55–90 kilowatt-hours (kWh) on the Inria Nef cluster, comparable to the energy needed for an electric car trip from Nice to Paris [2]. The resulting environmental cost depends not only on energy consumption but also on the Carbon Intensity (CI) of the electricity used, typically expressed in CO2-equivalents per kilowatt-hour (CO2e/kWh). This standardized metric aggregates the global warming impact of all greenhouse gases (and not just CO2). CI varies across time and geography, reflecting differences in local energy mix. As the current level of resource consumption becomes increasingly unsustainable, research priorities are shifting from exclusively maximizing model accuracy to jointly optimizing predictive performance and energy efficiency [3, 1], giving rise to the principles of Green ICT and Green AI [4, 5].
+
+In terms of data production, training data is inherently decentralized—generated at the user level and constrained by geographic and jurisdictional boundaries. Centralizing such data is often infeasible due to bandwidth limitations, latency, and energy overheads associated with large-scale data transfer. In addition, regulatory frameworks such as the GDPR in Europe and the CCPA in the U.S. impose data sovereignty, regulating cross-border data transfer and confining training data to their region of origin. Together, these constraints result in statistical heterogeneity and non-IID data distributions across computing nodes, as local datasets reflect region-specific demographic, behavioral, and cultural characteristics.
+
+Federated Learning (FL) emerges as an effective paradigm for training ML models across geographically distributed computing nodes—also referred to as clients [6, 7, 8]. Unlike centralized learning, FL avoids the transfer of raw data by exchanging model updates.
+
+In this work, we explore the idea that FL’s decentralized structure can also be leveraged to reduce the environmental impact of training by strategically allocating it to clients in regions and periods with lower CI. Indeed, due to disparities in regional energy mixes, CI varies significantly across both time and location. This variability creates opportunities for carbon-aware scheduling, in which training is shifted toward low-carbon regions and time windows. This paper addresses the following question: Given a pool of geographically distributed clients characterized by heterogeneous energy efficiency and carbon intensity, how should we schedule client training to minimize the environmental impact? We quantify the potential for substantial carbon savings by leveraging slack time—the flexibility to extend the training process beyond its minimum duration and defer computation to low-carbon periods.
+
+In addition to highlighting the potential benefits, this paper identifies and addresses the following challenges inherent to carbon-aware scheduling:
+
+1) Due to statistical heterogeneity, a carbon-greedy scheduling that tends to exclude high-emission clients will introduce statistical bias in the learned model. Our carbon-aware scheduler allocates a strictly positive share of the global carbon budget to each client through an 
+α
+-fair scheduling policy.
+
+2) Due to geographic variability in CI, even fair carbon-aware scheduling induces skewed client selection during training, leading to selection bias. We use an unbiased aggregation rule that compensates for heterogeneous client selection, ensuring all clients contribute equally to the final model.
+
+3) Due to temporal correlations in CI, carbon-aware scheduling suffers from last-iterate bias: early updates are rapidly forgotten, while late-round updates disproportionately influence the final model. To mitigate this imbalance, our scheduler introduces a fine-tuning phase with full client selection and optimizes its placement under the carbon budget.
+
+We evaluate our approach through extensive simulations using real-world CI traces from Electricity Maps [9]. The experimental results quantify the benefits of slack time, 
+α
+-fair carbon allocation, and fine-tuning, demonstrating consistent improvements over slack-agnostic training, particularly under tight carbon budget constraints.
+
+IIRelated Works
+As concerns grow over the environmental impact of ML training, driven by the increasing scale of models, research has focused on making ML more sustainable. Most efforts predominantly target centralized settings, particularly single-tenant data centers. At the hardware level, specialized accelerators can drastically reduce energy consumption per operation—often by orders of magnitude compared to traditional CPUs and GPUs [10, 11]. At the platform level, carbon-aware schedulers migrate workloads to low-carbon-intensity periods [12, 13]. Orthogonal model-centric techniques, such as pruning, quantization, and distillation, reduce floating-point operations and memory usage with relatively minor impact on accuracy [14, 15, 16].
+
+While effective in centralized settings, these strategies are often ill-suited for federated learning, where training is distributed across statistically heterogeneous, geographically dispersed clients. A large body of work in FL optimizes client selection to reduce wall-clock time or iteration complexity. System-oriented approaches (e.g., [17, 18, 19]) aim to accelerate convergence by selecting clients based on gradient norm [20] or loss-based utilities [21]. Fairness-oriented approaches (e.g., [22, 23]), enforce diverse client selection by prioritizing clients with high statistical utility. However, all these works overlook the carbon footprint of the resulting schedules.
+
+A parallel line of research has investigated how carbon-aware scheduling can reduce the environmental impact of federated learning. Early work shows that deferring training to low-carbon-intensity periods or selecting clients based on emission profiles can significantly reduce emissions [24, 25].
+
+Building on these foundations, recent works like FedZero [26], FedCarbon [27], CAFE [28], and GREED [29] jointly optimize convergence and carbon efficiency by scheduling FL rounds during periods and in regions of low CI. Recognizing the bias introduced by statistical heterogeneity, FedZero and CAFE incorporate fairness into carbon-aware client selection by promoting diverse participation and prioritizing clients with high statistical utility. However, estimating this utility requires all clients to compute local gradients on the current model at every round, regardless of whether they are selected or not—a common assumption in these works—which incurs an additional carbon cost. While this overhead is negligible in cross-silo settings (e.g., data centers), it becomes significant in cross-device scenarios, where clients are resource-constrained (e.g., smartphones) and both computation and communication are costly. In contrast, FedCarbon and GREED avoid this overhead by omitting fairness criteria from client selection, but consequently overlook the learning bias that carbon-aware scheduling can introduce.
+
+Unlike prior work, this paper incorporates fair client selection without relying on statistical utility, and is therefore applicable to both cross-silo and cross-device settings. In the latter setting, where individual devices may not always be available, selecting clients from a region can be intended as defining a sampling probability over that region. To our knowledge, we are the first to address temporal bias in carbon-aware scheduling, a challenge stemming from correlations in CI profiles, yet overlooked in existing literature. To our knowledge, we are the first to address temporal bias in carbon-aware scheduling, a challenge stemming from correlations in CI profiles, yet overlooked in existing literature.
+
+IIIProblem Description
+A central server coordinates a set of clients 
+𝒞
+≔
+{
+1
+,
+…
+,
+K
+}
+ to collaboratively learn the parameters 
+θ
+∈
+ℝ
+d
+ of a global ML model (e.g., the weights of a neural network architecture). Each client 
+c
+∈
+𝒞
+ holds a private local dataset 
+D
+c
+ and evaluates the quality of model parameters 
+θ
+ on data sample 
+z
+∈
+D
+c
+ via a loss function 
+ℓ
+​
+(
+θ
+;
+z
+)
+. The global learning objective is to minimize the average empirical loss across all clients:
+
+F
+​
+(
+θ
+)
+≔
+1
+K
+​
+∑
+c
+∈
+𝒞
+[
+F
+c
+​
+(
+θ
+)
+≔
+1
+|
+D
+c
+|
+​
+∑
+z
+∈
+D
+c
+ℓ
+​
+(
+θ
+;
+z
+)
+]
+.
+(1)
+III-AThe FedAvg Algorithm
+Problem (1) is commonly solved using iterative algorithms such as Federated Averaging (FedAvg) [7], which proceed over 
+T
+ communication rounds between the server and clients.
+
+At each round 
+t
+∈
+{
+1
+,
+…
+,
+T
+}
+, the server selects a subset of clients 
+𝒜
+(
+t
+)
+⊆
+𝒞
+ and broadcasts the current global model 
+θ
+(
+t
+)
+. Let 
+a
+c
+(
+t
+)
+∈
+{
+0
+,
+1
+}
+ denote the binary indicator of whether client 
+c
+ is selected at round 
+t
+, so that 
+a
+c
+(
+t
+)
+=
+1
+ if 
+c
+∈
+𝒜
+(
+t
+)
+, and 
+0
+ otherwise. Each selected client 
+c
+∈
+𝒜
+(
+t
+)
+ performs 
+τ
+ local stochastic gradient descent (SGD) steps on its local dataset:
+
+θ
+c
+(
+t
+,
+l
++
+1
+)
+=
+θ
+c
+(
+t
+,
+l
+)
+−
+η
+​
+∇
+F
+c
+​
+(
+θ
+c
+(
+t
+,
+l
+)
+,
+ℬ
+c
+(
+t
+,
+l
+)
+)
+,
+l
+=
+0
+,
+…
+,
+τ
+−
+1
+,
+(2)
+where 
+η
+>
+0
+ is the learning rate, 
+ℬ
+c
+(
+t
+,
+l
+)
+⊆
+D
+c
+ is a randomly sampled mini-batch, and 
+∇
+F
+c
+​
+(
+⋅
+,
+ℬ
+)
+≔
+1
+|
+ℬ
+|
+​
+∑
+z
+∈
+B
+∇
+ℓ
+​
+(
+⋅
+,
+z
+)
+ is an unbiased gradient estimate of 
+∇
+F
+c
+​
+(
+⋅
+)
+. Each client 
+c
+∈
+𝒜
+(
+t
+)
+ then returns its local update 
+Δ
+c
+(
+t
+)
+=
+θ
+(
+t
+)
+−
+θ
+c
+(
+t
+,
+τ
+)
+ to the server, which aggregates the updates as:
+
+Δ
+FedAvg
+(
+t
+)
+=
+1
+|
+𝒜
+(
+t
+)
+|
+​
+∑
+c
+∈
+𝒜
+(
+t
+)
+Δ
+c
+(
+t
+)
+,
+(3)
+and updates the global model as 
+θ
+(
+t
++
+1
+)
+=
+θ
+(
+t
+)
+−
+Δ
+FedAvg
+(
+t
+)
+. Because clients are geographically distributed, different selection sequences 
+{
+𝒜
+(
+t
+)
+}
+t
+=
+1
+T
+ yield different carbon emissions, depending on the temporal and regional variability of CI.
+
+III-BCarbon Footprint of FL Training
+As we mentioned above, the CI is measured in kilograms of carbon dioxide equivalent (CO2e) per kWh of energy consumed (kgCO2e/kWh). Platforms such as Electricity Maps [9] provide CI estimates, including both hourly historical data and 72-hour forecasts, for a broad set of geographic regions. In this paper, for the sake of concreteness, we consider historical CI data from 2022 across 54 geographic regions, as provided by [9]. For simplicity, we assume that each communication round corresponds to a one-hour time slot 
+t
+∈
+{
+1
+,
+…
+,
+T
+}
+. If the round duration differs, the CI granularity should be adjusted accordingly. Moreover, each client 
+c
+ is characterized by a fixed power draw 
+P
+c
+ (in kW), leading to the same energy consumption over each time slot 
+E
+c
+=
+P
+c
+×
+1
+ (in kWh). Thus, the carbon footprint 
+g
+c
+(
+t
+)
+ incurred by selecting client 
+c
+ during the interval 
+[
+t
+,
+t
++
+1
+]
+ is approximated by 
+g
+c
+(
+t
+)
+=
+E
+c
+×
+CI
+c
+(
+t
+)
+, where 
+CI
+c
+(
+t
+)
+ is the average CI of client 
+c
+ during time slot 
+t
+.
+
+Our objective is to design a carbon-aware FL schedule that, under a predefined carbon budget 
+k
+ (in kgCO2e), jointly decides which clients to select and at which time slots, while preserving model accuracy. A key challenge here is that clients may have possibly diverse datasets, and the underlying energy sources are inherently heterogeneous and correlated across time and geography. These combined effects influence client selection strategies in a nontrivial way.
+
+TABLE I:List of Symbols
+Symbol	
+Description
+K
+Total number of clients
+𝒞
+Set of clients, 
+𝒞
+≔
+{
+1
+,
+…
+,
+K
+}
+D
+c
+Local dataset of client 
+c
+ℓ
+​
+(
+θ
+;
+z
+)
+Loss of model 
+θ
+ on data sample 
+z
+F
+c
+​
+(
+θ
+)
+Local objective of client 
+c
+, 
+F
+c
+​
+(
+θ
+)
+≔
+1
+|
+D
+c
+|
+​
+∑
+z
+∈
+D
+c
+ℓ
+​
+(
+θ
+;
+z
+)
+F
+​
+(
+θ
+)
+Global objective, 
+F
+​
+(
+θ
+)
+≔
+1
+K
+​
+∑
+c
+∈
+𝒞
+F
+c
+​
+(
+θ
+)
+T
+Number of communication rounds
+𝒜
+(
+t
+)
+Subset of clients selected at round/slot 
+t
+a
+c
+(
+t
+)
+Binary indicator: 
+1
+ if client 
+c
+ selected at slot 
+t
+, else 
+0
+τ
+Number of local steps
+η
+Learning rate
+ℬ
+​
+c
+(
+t
+,
+l
+)
+Mini-batch sampled by client 
+c
+ at round 
+t
+, local step 
+l
+∇
+F
+c
+​
+(
+⋅
+,
+ℬ
+)
+Unbiased mini-batch gradient estimator for client 
+c
+F
+∗
+Minimum value of the global objective 
+F
+θ
+c
+(
+t
+,
+l
+)
+Local model of client 
+c
+ at round 
+t
+, local step 
+l
+Δ
+c
+(
+t
+)
+Local update from client 
+c
+ at round 
+t
+, 
+Δ
+c
+(
+t
+)
+=
+θ
+(
+t
+)
+−
+θ
+c
+(
+t
+,
+τ
+)
+Δ
+FedAvg
+(
+t
+)
+FedAvg update at round 
+t
+ (Eq. (3))
+Δ
+U-FedAvg
+(
+t
+)
+Unbiased FedAvg update at round 
+t
+ (Eq. (6))
+P
+c
+Power draw of client 
+c
+E
+c
+Energy consumed per time slot by client 
+c
+CI
+c
+(
+t
+)
+Carbon intensity at client 
+c
+ during slot 
+t
+g
+c
+(
+t
+)
+Carbon cost of selecting 
+c
+ at 
+t
+, 
+g
+c
+(
+t
+)
+=
+E
+c
+⋅
+CI
+c
+(
+t
+)
+g
+max
+Maximum carbon cost across all clients and time slots
+k
+Global carbon budget
+t
+sl
+Slack time (number of extra time slots beyond 
+T
+)
+𝒯
+c
+Set of 
+T
+ time slots for client 
+c
+ within window of length 
+T
++
+t
+sl
+Δ
+CO
+2
+e
+​
+(
+c
+)
+Relative CO2e savings for client 
+c
+ (Eq. (4))
+Δ
+CO
+2
+e
+​
+(
+N
+)
+Relative CO2e savings for 
+N
+ clients with slack vs without slack
+N
+Number of clients selected (varies between 
+1
+ and 
+K
+)
+𝒮
+N
+fixed
+Set of 
+N
+ clients selected without using slack time
+𝒮
+N
+slack
+Set of 
+N
+ clients selected when slack is allowed
+α
+Fairness parameter in 
+α
+-fair carbon allocation, 
+α
+∈
+(
+0
+,
+1
+]
+π
+c
+Selection frequency of client c 
+π
+c
+≔
+1
+T
+​
+∑
+t
+=
+1
+T
+a
+c
+(
+t
+)
+𝝅
+Vector of selection frequencies 
+𝝅
+≔
+(
+π
+1
+,
+…
+,
+π
+K
+)
+ρ
+H
+Selection heterogeneity measure, 
+ρ
+H
+≔
+1
+K
+​
+∑
+c
+=
+1
+K
+1
+−
+π
+c
+π
+c
+ρ
+T
+Temporal correlation measure in client selection
+ρ
+TS
+Temporal-spatial correlation measure (second-largest eigenvalue of transition matrix)
+t
+ft
+Fine-tuning duration (number of rounds)
+s
+Fine-tuning end time
+ℱ
+​
+(
+s
+)
+Fine-tuning window, 
+ℱ
+​
+(
+s
+)
+=
+{
+T
++
+s
+−
+t
+ft
++
+1
+,
+…
+,
+T
++
+s
+}
+A
+Scheduling matrix 
+A
+≔
+(
+a
+c
+(
+t
+)
+)
+c
+,
+t
+IVProspective Carbon Savings via Slack Time
+How much CO2e can FL potentially avoid by deferring training to periods of low carbon intensity?
+
+Figure 1, sourced from the Electricity Maps [9], shows the hourly variation in CI across selected European countries over five consecutive days in January 2022. Countries like France and Sweden exhibit low, stable CI levels below 0.05 kgCO2e/kWh, while countries like Germany and Ireland show the highest variability with fluctuations above 0.2 kgCO2e/kWh. This variability in the CI profiles across countries opens prospective opportunities for emissions reduction, as training can be partially offloaded to low-CI periods.
+
+Refer to caption
+Figure 1:CI time evolution across selected countries from January 1 to January 5, 2022.
+We formalize these potential savings by defining slack time, 
+t
+sl
+, as the number of extra time slots available beyond the strictly necessary training duration 
+T
+. A larger slack time offers more flexibility to defer training to low-CI periods, thereby reducing carbon emissions.
+
+In what follows, we quantify the potential benefits of strategically scheduling client training, while temporarily ignoring its impact on final model quality.
+
+IV-AImpact of Slack Time on Individual Clients
+Refer to caption
+Figure 2:CO2e savings per individual client as a function of slack time. Each row corresponds to a different region.
+We first quantify CO2e savings for an individual client. We set a fixed training duration of 
+T
+=
+100
+ hours and progressively increase slack time 
+t
+sl
+∈
+[
+1
+,
+236
+]
+, yielding a scheduling window of up to two weeks (
+T
++
+t
+sl
+=
+336
+ hours). For each client 
+c
+, we select a set 
+𝒯
+c
+ consisting of the 
+T
+ time slots with the lowest CI within the given window, i.e., 
+𝒯
+c
+∈
+arg
+⁡
+min
+𝒯
+′
+⊆
+{
+1
+,
+…
+,
+T
++
+t
+sl
+}
+,
+|
+𝒯
+′
+|
+=
+T
+​
+∑
+t
+∈
+𝒯
+′
+g
+c
+(
+t
+)
+. We measure the CO2e savings relative to the first 
+T
+ slots (i.e., without slack time) as:
+
+Δ
+CO
+2
+e
+​
+(
+c
+)
+=
+(
+1
+−
+∑
+t
+∈
+𝒯
+c
+g
+c
+(
+t
+)
+∑
+t
+′
+=
+1
+T
+g
+c
+(
+t
+′
+)
+)
+.
+(4)
+Figure 2 shows that clients with high carbon intensity variability can already achieve a 20% reduction in emissions when training is allowed to extend by just 
+t
+sl
+=
+20
+ extra hours, and up to 60% reductions with 
+t
+sl
+=
+236
+ hours. Moreover, with 
+t
+sl
+=
+236
+ hours, approximately 80% of clients reduce their training carbon intensity by at least 10%, and 50% of them achieve reductions by at least 20%.
+
+IV-BImpact of Slack Time and Client Selection
+We extend the analysis to jointly optimize client selection and time slot scheduling. We again fix 
+T
+=
+100
+ hours and consider the maximal slack time 
+t
+sl
+=
+236
+ hours, varying the number of selected clients 
+N
+ from 1 to 
+K
+=
+54
+. We compare two client selection strategies:
+
+• Without slack time, where we select the set of 
+N
+ clients 
+𝒮
+N
+fixed
+ with the lowest cumulative carbon emissions over the initial 
+T
+-hour training period. Formally, 
+𝒮
+N
+fixed
+∈
+arg
+⁡
+min
+𝒮
+⊆
+{
+1
+,
+…
+,
+K
+}
+,
+|
+𝒮
+|
+=
+N
+​
+∑
+c
+∈
+𝒮
+∑
+t
+=
+1
+T
+g
+c
+(
+t
+)
+.
+• With slack time, where we select the set of clients 
+𝒮
+N
+slack
+ with the lowest emissions over their 
+T
+ least carbon-intensive time slots within the extended scheduling window of length 
+T
++
+t
+sl
+. Formally, 
+𝒮
+N
+slack
+∈
+arg
+⁡
+min
+𝒮
+⊆
+{
+1
+,
+…
+,
+K
+}
+,
+|
+𝒮
+|
+=
+N
+​
+∑
+c
+∈
+𝒮
+∑
+t
+∈
+𝒯
+c
+g
+c
+(
+t
+)
+.
+Figure 3 shows the relative reduction in CO2e:
+
+Δ
+CO
+2
+e
+​
+(
+N
+)
+=
+(
+1
+−
+∑
+c
+∈
+𝒮
+N
+slack
+∑
+t
+∈
+𝒯
+c
+g
+c
+(
+t
+)
+∑
+c
+′
+∈
+𝒮
+N
+fixed
+∑
+t
+′
+=
+1
+T
+g
+c
+′
+(
+t
+′
+)
+)
+.
+(5)
+To account for seasonality effects, we averaged results over 100 randomly sampled training start times throughout the year 2022. As 
+N
+ grows, emissions necessarily increase because each additional client contributes an equal or greater carbon cost. Nonetheless, accounting for slack time allows for meaningful reductions in overall carbon usage. CO2e savings exceed 60% with fewer than 5 clients, remain above 40% with up to 15 clients, and stabilize around 20% when all 
+K
+=
+54
+ clients are selected.
+
+Refer to caption
+Figure 3:CO2e savings from slack-aware versus slack-agnostic client selection as a function of the number of selected clients (with lowest average carbon emissions).
+VPerformance Trade-Offs in Carbon-Aware Scheduling
+The slack analysis showed substantial carbon savings assuming equal contribution of all training slots to model performance. In practice, the contribution of each slot depends on when it occurs and on which client performs it. This section quantifies the practical trade-offs between carbon savings and model accuracy, under a consistent experimental setup.
+
+Experimental Setup. We simulate a FL environment with 
+K
+=
+7
+ clients, each mapped to a different geographic region (Belgium, Great Britain, Ireland, Finland, Sweden, Germany, and France). Unless otherwise mentioned, training begins on January 1, 2022 and proceeds for 
+T
+=
+50
+ communication rounds, and each region is assigned hourly carbon intensity from real-world Electricity Maps [9]. Each client trains a convolutional neural network (CNN) with 
+∼
+1.2
+ million parameters for MNIST classification, consisting of two 
+3
+×
+3
+ convolutional layers with 32 and 64 filters (each followed by ReLU and 
+2
+×
+2
+ max-pooling) and two fully connected layers with 128 hidden units and 10 output units. To simulate statistical heterogeneity, we partition the data across clients in a non-IID fashion using a Dirichlet distribution with concentration parameter 
+β
+=
+0.5
+. Clients perform 
+τ
+=
+5
+ local SGD updates per round using mini-batches of size 128. Optimization uses cross-entropy loss with learning rates tuned for each experiment via grid search over 
+η
+∈
+{
+10
+−
+1
+,
+10
+−
+1.5
+,
+10
+−
+2
+}
+. All results are averaged over three independent runs.
+
+V-AFair Carbon Allocation under Statistical Heterogeneity
+Refer to caption
+     (a) 
+α
+=
+1.0
+Refer to caption
+(b) 
+α
+=
+10
+−
+3
+Figure 4:Effect of fairness parameter 
+α
+ on allocation (green: selected, red: excluded): from a carbon-greedy (Fig. 4a) to a carbon-fair (Fig. 4b) allocation.
+In real-world FL systems, time slots are not interchangeable across clients due to statistical heterogeneity in their local datasets 
+{
+D
+c
+}
+c
+=
+1
+K
+, which differ in both sample size and distribution. For instance, clients in different geographic regions may exhibit distinct data influenced by cultural, linguistic, or behavioral factors. As a result, the local losses 
+{
+F
+c
+​
+(
+θ
+)
+≔
+1
+|
+D
+c
+|
+​
+∑
+z
+∈
+D
+c
+ℓ
+​
+(
+θ
+;
+z
+)
+}
+c
+=
+1
+K
+ can deviate significantly from the global loss 
+F
+​
+(
+θ
+)
+≔
+1
+K
+​
+∑
+c
+=
+1
+K
+F
+c
+​
+(
+θ
+)
+.
+
+A carbon-aware scheduler that selects client 
+c
+ at time 
+t
+ (
+a
+c
+(
+t
+)
+=
+1
+) minimizes, over 
+T
+ rounds, the empirical loss 
+F
+~
+T
+​
+(
+θ
+)
+≔
+1
+K
+​
+T
+​
+∑
+c
+=
+1
+K
+∑
+t
+=
+1
+T
+a
+c
+(
+t
+)
+​
+F
+c
+​
+(
+θ
+)
+. If a high-emission client 
+c
+′
+ is systematically excluded (i.e., 
+a
+c
+′
+(
+t
+)
+=
+0
+ for all 
+t
+), its local loss 
+F
+c
+′
+​
+(
+θ
+)
+ does not contribute to 
+F
+~
+T
+​
+(
+θ
+)
+, inducing a statistical bias in the learned model.
+
+More generally, under a fixed carbon budget 
+k
+, selecting only the lowest CI time slots may result in a skewed representation of clients, potentially harming model generalization. To mitigate this statistical bias, each client should be guaranteed a non-zero fraction of the global carbon budget 
+k
+, while still favoring lower-emission clients. We formalize this trade-off using an 
+α
+-fair utility function [30], and define the resulting policy as the 
+α
+-fair carbon-aware scheduler: {maxi!} A ≔(a_c^(t))_c,t∑_c=1^K ( ∑_t=1^T + t_sl (g_max - g_c^(t)) a_c^(t) )^α \addConstraint∑_c=1^K ∑_t=1^T + t_sl g_c^(t) a_c^(t)≤k \addConstrainta_c^(t)∈{0,1},  ∀c, t, where 
+g
+max
+≔
+max
+c
+,
+t
+⁡
+g
+c
+(
+t
+)
+ is a constant that allows us to formulate the problem as a maximization task—the rationale for preferring a maximization formulation over minimization will be discussed in Section VI. The parameter 
+α
+∈
+(
+0
+,
+1
+]
+ controls the trade-off between pure carbon-efficiency and fair carbon allocation across clients: when 
+α
+=
+1
+, the solution prioritizes selecting as many low-emission time slots as the budget allows, whereas as 
+α
+→
+0
++
+, the allocation tends toward distributing the carbon budget as equally as possible among clients at the cost of selecting a smaller number of time slots. Throughout the remainder of this work, we refer to the 
+α
+=
+1
+ allocation as carbon-greedy, and to allocations with smaller 
+α
+ as (more) carbon-fair.
+
+Figure 4 shows the resulting matrix 
+A
+≔
+(
+a
+c
+(
+t
+)
+)
+c
+,
+t
+ for 
+α
+=
+1
+ and 
+α
+=
+10
+−
+3
+, respectively. At 
+α
+=
+1
+, high-emission clients are systematically excluded. In contrast, at 
+α
+=
+10
+−
+3
+, these clients are occasionally selected, at the cost of a 14% reduction in the total number of scheduled training slots.
+
+Figure 5 shows the trade-off between test accuracy and the fairness parameter 
+α
+ under varying carbon budgets. Overall, we observe that for large (3 kgCO2e) and medium (2 kgCO2e) carbon budgets, increasing fairness (i.e., using smaller 
+α
+ values) reduces statistical bias and leads to substantial improvements in accuracy compared to the carbon-greedy case (
+α
+=
+1
+): +5 percentage points (pp) for large budgets and +8 pp for medium budgets. However, under tight carbon budgets (e.g., below 1 kgCO2e), enforcing fairness can limit the number of available training slots, ultimately leading to a drop in accuracy. Interestingly, within the range 
+α
+∈
+[
+10
+−
+3
+,
+10
+−
+1
+]
+, performance remains relatively stable, indicating that the method is not overly sensitive to the exact choice of 
+α
+. This suggests that selecting a suitable value is not particularly challenging in practice—though it may come at the cost of suboptimal performance under very tight carbon budgets.
+
+Refer to caption
+Figure 5:Effect of fairness parameter 
+α
+ on test accuracy for different carbon budgets: from a carbon-fair (
+α
+=
+10
+−
+3
+) to a carbon-greedy (
+α
+=
+1
+) per client allocation.
+V-BUnbiased FedAvg under Client Selection Heterogeneity
+While the 
+α
+-fair scheduler in Opt. (4) guarantees each client a non-zero share of the carbon budget, it does not enforce uniform selection frequencies. Even as 
+α
+→
+0
++
+, the scheduler tends to equalize the carbon budget allocated per client, but clients with higher CI will be selected less frequently, as each of their training rounds consumes more of the budget. As a result, selection heterogeneity can emerge: lower-emission clients can be selected significantly more frequently than high-emission ones, even at small 
+α
+. For example, in Figure 4b, low-carbon clients are selected up to 6 times more often than high-carbon ones when 
+α
+=
+10
+−
+3
+.
+
+We define selection frequencies 
+𝝅
+≔
+(
+π
+1
+,
+…
+,
+π
+K
+)
+, where 
+π
+c
+≔
+1
+T
+​
+∑
+t
+=
+1
+T
+a
+c
+(
+t
+)
+ is the fraction of training rounds in which client 
+c
+ is selected. We measure selection heterogeneity as 
+ρ
+H
+≔
+1
+K
+​
+∑
+c
+=
+1
+K
+1
+−
+π
+c
+π
+c
+, with higher 
+ρ
+H
+ indicating more heterogeneous client selection. In practice, substantial disparities may persist even under carbon-fair scheduling: in Figure 4b, we measure 
+ρ
+H
+=
+6
+.
+
+Selection heterogeneity can significantly degrade model quality. The standard FedAvg aggregation rule, 
+Δ
+FedAvg
+(
+t
+)
+=
+1
+|
+𝒜
+(
+t
+)
+|
+​
+∑
+c
+∈
+𝒜
+(
+t
+)
+Δ
+c
+(
+t
+)
+, effectively minimizes the weighted loss 
+F
+~
+T
+​
+(
+θ
+)
+≔
+1
+K
+​
+∑
+c
+=
+1
+K
+π
+c
+​
+F
+c
+​
+(
+θ
+)
+, where clients selected more frequently—those with lower CI—receive higher weight (this argument can be formalized by assuming that each client 
+c
+ is selected at each time slot with probability 
+π
+c
+). The selection bias introduces then a mismatch between the empirical loss 
+F
+~
+T
+​
+(
+θ
+)
+ and the true global loss 
+F
+​
+(
+θ
+)
+, leading to a non-vanishing convergence error proportional to the total variation distance 
+d
+TV
+​
+(
+𝟏
+/
+K
+,
+𝝅
+/
+∥
+𝝅
+∥
+1
+)
+=
+1
+2
+​
+∑
+c
+=
+1
+K
+|
+1
+K
+−
+π
+c
+∥
+𝝅
+∥
+1
+|
+ [31].
+
+To correct for selection bias, a carbon-aware scheduler must adopt an unbiased aggregation rule, in which each client’s update is reweighted by the inverse of its selection frequency 
+π
+c
+:
+
+Δ
+U-FedAvg
+(
+t
+)
+=
+1
+K
+​
+∑
+c
+∈
+𝒜
+(
+t
+)
+Δ
+c
+(
+t
+)
+π
+c
+.
+(6)
+This variant is known as Unbiased FedAvg (U-FedAvg) [31] and leads to an unbiased model.
+
+For smooth and strongly-convex objective and diminishing learning rates, U-FedAvg achieves 
+𝔼
+​
+[
+F
+​
+(
+θ
+(
+T
+)
+)
+]
+−
+F
+⋆
+≤
+𝒪
+​
+(
+ρ
+H
+/
+T
+)
+, where 
+F
+∗
+ denotes the minimum value of 
+F
+, eliminating selection bias but converging more slowly when selection heterogeneity 
+ρ
+H
+ is large [31].
+
+V-CFine-Tuning under Temporal and Spatial Correlation
+Refer to caption
+Figure 6:Effect of heterogeneity and correlation on test accuracy, with and without fine-tuning (
+t
+ft
+=
+10
+). Client selection is either homogeneous (HO: 
+ρ
+H
+<
+1
+) or heterogeneous (HE: 
+ρ
+H
+>
+1.5
+); time uncorrelated (TU: 
+ρ
+T
+<
+0.1
+) or time correlated (TC: 
+ρ
+T
+>
+0.7
+); and space uncorrelated (SU: 
+ρ
+TS
+<
+0.35
+) or space correlated (SC: 
+ρ
+TS
+>
+0.45
+).
+Temporal and spatial correlations in carbon intensity introduce additional challenges for carbon-aware scheduling. These correlations stem from systematic variations in regional energy mixes and demand. For instance, in solar-heavy regions, CI drops predictably around midday when solar energy production peaks and lowers demand for fossil fuels. In wind-dominated regions, CI fluctuates with weather conditions, while in coal-reliant grids, CI remains consistently high throughout the day.
+
+The carbon-aware scheduler in Opt. (4) naturally inherits these correlated dynamics. Temporal correlation arises when clients are consistently selected or excluded over long consecutive time periods, due to persistently low or high CI during specific hours or days. Spatial correlation emerges when geographically close clients share similar CI patterns and are thus selected or excluded together. Correlated selection patterns are clearly visible in Figure 4b: despite the strong fairness constraint imposed by 
+α
+=
+10
+−
+3
+, many clients tend to be either consistently selected or consistently excluded across long sequences of time slots.
+
+These correlations degrade model performance by introducing temporal imbalance in the aggregation of client updates from different training rounds. Specifically, updates from clients selected in early rounds may be rapidly overwritten—a phenomenon known as catastrophic forgetting [32]—while updates from clients selected in later rounds typically exert a disproportionately high influence on the final model parameters, an effect known as last-iterate bias [33].
+
+1
+2Input: 
+θ
+(
+1
+)
+, 
+{
+D
+c
+}
+c
+=
+1
+K
+, 
+τ
+, 
+η
+, 
+(
+g
+c
+(
+t
+)
+)
+c
+,
+t
+, 
+T
+, 
+t
+sl
+, 
+t
+ft
+, 
+α
+3
+(
+(
+a
+c
+(
+t
+)
+)
+c
+,
+t
+,
+s
+)
+←
+ CarbonScheduler(
+(
+g
+c
+(
+t
+)
+)
+c
+,
+t
+, 
+t
+sl
+, 
+t
+ft
+, 
+α
+)
+4for 
+t
+=
+1
+,
+…
+,
+T
++
+s
+ do
+5   
+6   for 
+c
+=
+1
+,
+…
+,
+K
+:
+a
+c
+(
+t
+)
+=
+1
+, in parallel do
+7      
+8      
+θ
+c
+(
+t
+,
+0
+)
+←
+θ
+(
+t
+)
+9      for 
+l
+=
+0
+,
+1
+​
+…
+,
+τ
+−
+1
+ do
+10         
+11         
+θ
+c
+(
+t
+,
+l
++
+1
+)
+=
+θ
+c
+(
+t
+,
+l
+)
+−
+η
+​
+∇
+F
+c
+​
+(
+θ
+c
+(
+t
+,
+l
+)
+,
+ℬ
+c
+(
+t
+,
+l
+)
+)
+12      
+13      
+Δ
+c
+(
+t
+)
+←
+(
+θ
+(
+t
+)
+−
+θ
+c
+(
+t
+,
+τ
+)
+)
+14   
+15   if 
+t
+∈
+ℱ
+​
+(
+s
+)
+ then
+16      
+17      
+Δ
+FedAvg
+(
+t
+)
+=
+1
+K
+​
+∑
+c
+=
+1
+K
+Δ
+c
+(
+t
+)
+18      
+θ
+(
+t
++
+1
+)
+=
+θ
+(
+t
+)
+−
+Δ
+FedAvg
+(
+t
+)
+19   
+20   else
+21      
+22      
+Δ
+U-FedAvg
+(
+t
+)
+=
+1
+K
+​
+∑
+c
+=
+1
+K
+a
+c
+(
+t
+)
+​
+Δ
+c
+(
+t
+)
+π
+c
+23      
+θ
+(
+t
++
+1
+)
+=
+θ
+(
+t
+)
+−
+Δ
+U-FedAvg
+(
+t
+)
+24   
+Algorithm 1 Carbon-Aware FL Algorithm
+When client participation follows a Markov chain (MC) with state space 
+{
+0
+,
+1
+}
+K
+ and transition matrix 
+P
+, [31] shows that, for smooth and strongly convex objectives, U-FedAvg achieves the convergence bound 
+𝔼
+​
+[
+F
+​
+(
+θ
+(
+T
+)
+)
+]
+−
+F
+∗
+≤
+𝒪
+​
+(
+[
+ln
+⁡
+(
+1
+/
+ρ
+TS
+)
+​
+T
+]
+−
+1
+)
+, where 
+ρ
+TS
+ denotes the second-largest eigenvalue in modulus of 
+P
+. This result highlights the impact of correlations in client selection on the convergence rate, with slower-mixing chains (i.e., 
+ρ
+TS
+→
+1
+) leading to slower convergence.
+
+Figure 6 reports test accuracy under varying levels of temporal and spatial correlation. In general, the MC can capture these correlations either separately or jointly. We denote 
+ρ
+TS
+ simply as 
+ρ
+T
+ when the MC exhibits only temporal correlation. Compared to low-correlation settings (
+ρ
+T
+<
+0.1
+), test accuracy decreases by 1 pp when temporal correlation is high (
+ρ
+T
+>
+0.7
+), and by an additional 1 pp when spatial correlation is also high (
+ρ
+TS
+>
+0.45
+).
+
+To compensate for last-iterate bias, we append a fine-tuning window at the end of the training schedule. This window, defined as 
+ℱ
+=
+{
+T
+−
+t
+ft
++
+1
+,
+…
+,
+T
+}
+, spans the final 
+t
+ft
+ rounds and enforces full client selection (
+a
+c
+(
+t
+)
+=
+1
+ for all 
+c
+∈
+𝒞
+, 
+t
+∈
+ℱ
+). By imposing a final model update from every client, this final stage aims at mitigating the temporal imbalance caused by correlated selection and the dominance of late-round updates. In Figure 6, fine-tuning yields substantial gains, especially when both correlations are high (
+ρ
+TS
+>
+0.45
+), improving test accuracy by +3.8 pp.
+
+TABLE II:Final test accuracy under different carbon budget constraints (
+k
+) and fine-tuning end times (
+s
+). The first column reports the absolute available budget as well as percentage of the full-budget reference. The second and third columns show the training time (
+T
+) and the accuracy for the slack-agnostic baseline, respectively. The remaining columns correspond to varying fine-tuning end times 
+s
+, evaluated for two fine-tuning durations (
+t
+ft
+=
+1
+ and 
+t
+ft
+=
+3
+). Numbers in parentheses denote the standard deviation across three seeds. Bold values indicate the best accuracy in each row. A horizontal rule (—) indicates that placing fine-tuning at the given 
+s
+ would exceed the available carbon budget and was therefore infeasible.
+(a)Test accuracy with fine-tuning duration 
+t
+ft
+=
+1
+.
+Carbon
+Budget (
+k
+)
+Training
+Time (
+T
+)
+No-Slack
+Baseline
+End time for fine-tuning (
+s
+)
+1	3	5	7	9	10	20	30	40	50	70	90	110	130	150
+7.98 / 82.0%	40	 
+98.82
+(0.06)
+ 	 
+98.86
+(0.04)
+ 	 
+98.82
+(0.07)
+ 	 
+98.86
+(0.09)
+ 	 
+98.83
+(0.06)
+ 	 
+98.86
+(0.07)
+ 	 
+98.91
+(0.02)
+ 	 
+98.95
+(0.07)
+ 	 
+98.91
+(0.08)
+ 	 
+98.99
+(0.03)
+ 	 
+99.01
+(0.02)
+ 	 
+98.97
+(0.03)
+ 	 
+98.97
+(0.03)
+ 	 
+99.02
+(0.03)
+ 	 
+98.98
+(0.03)
+ 	 
+98.98
+(0.06)
+ 
+6.2 / 63.67%	30	 
+98.66
+(0.07)
+ 	 
+98.68
+(0.03)
+ 	 
+98.72
+(0.06)
+ 	 
+98.71
+(0.05)
+ 	 
+98.78
+(0.08)
+ 	 
+98.8
+(0.06)
+ 	 
+98.82
+(0.05)
+ 	 
+98.83
+(0.03)
+ 	 
+98.94
+(0.08)
+ 	 
+98.96
+(0.05)
+ 	 
+99.01
+(0.04)
+ 	 
+99.03
+(0)
+ 	 
+99.02
+(0.04)
+ 	 
+98.98
+(0.03)
+ 	 
+99.03
+(0.05)
+ 	 
+98.9
+(0.13)
+ 
+4.24 / 43.52%	20	 
+98.36
+(0.09)
+ 	 
+98.38
+(0.1)
+ 	 
+98.41
+(0.1)
+ 	 
+98.5
+(0.05)
+ 	 
+98.53
+(0.08)
+ 	 
+98.55
+(0.12)
+ 	 
+98.6
+(0.07)
+ 	 
+98.78
+(0.03)
+ 	 
+98.89
+(0.03)
+ 	 
+98.97
+(0.04)
+ 	 
+99.01
+(0.01)
+ 	 
+98.98
+(0.03)
+ 	 
+98.97
+(0.04)
+ 	 
+98.97
+(0.07)
+ 	 
+98.77
+(0.03)
+ 	 
+98.68
+(0.26)
+ 
+1.98 / 20.38%	10	 
+97.42
+(0.08)
+ 	 
+97.48
+(0.08)
+ 	 
+97.7
+(0.11)
+ 	 
+97.96
+(0.06)
+ 	 
+98.14
+(0.09)
+ 	 
+98.25
+(0.08)
+ 	 
+98.21
+(0.1)
+ 	 
+98.58
+(0.03)
+ 	 
+98.7
+(0.04)
+ 	 
+98.86
+(0.07)
+ 	 
+98.77
+(0.05)
+ 	 
+98.66
+(0.01)
+ 	 
+98.67
+(0.06)
+ 	 
+98.25
+(0.12)
+ 	 
+96.72
+(0.3)
+ 	 
+96.19
+(0.4)
+ 
+0.94 / 9.69%	5	 
+95.83
+(0.34)
+ 	 
+96.14
+(0.23)
+ 	 
+96.71
+(0.15)
+ 	 
+97.3
+(0.12)
+ 	 
+97.56
+(0.1)
+ 	 
+97.79
+(0.1)
+ 	 
+97.97
+(0.15)
+ 	 
+98.01
+(0.14)
+ 	 
+97.94
+(0.07)
+ 	 
+97.61
+(0.16)
+ 	 
+98.33
+(0.07)
+ 	 
+97.85
+(0.27)
+ 	 
+97.86
+(0.17)
+ 	 
+97.33
+(0.24)
+ 	 
+88.98
+(1.8)
+ 	 
+89.05
+(3.08)
+ 
+0.74 / 7.65%	4	 
+95.03
+(0.4)
+ 	 
+95.51
+(0.21)
+ 	 
+96.41
+(0.3)
+ 	 
+97.2
+(0.09)
+ 	 
+97.47
+(0.16)
+ 	 
+97.71
+(0.14)
+ 	 
+97.79
+(0.06)
+ 	 
+98.14
+(0.18)
+ 	 
+97.21
+(0.24)
+ 	 
+96.14
+(0.13)
+ 	 
+98.27
+(0.02)
+ 	 
+97.54
+(0.25)
+ 	 
+97.69
+(0.39)
+ 	 
+95.36
+(0.62)
+ 	 
+88.98
+(0.82)
+ 	 
+85.12
+(1.79)
+ 
+0.56 / 5.73%	3	 
+93.9
+(0.33)
+ 	 
+95.05
+(0.35)
+ 	 
+95.96
+(0.2)
+ 	 
+96.82
+(0.1)
+ 	 
+97.18
+(0.13)
+ 	 
+97.56
+(0.17)
+ 	 
+97.66
+(0.09)
+ 	 
+98.11
+(0.11)
+ 	 
+97.07
+(0.09)
+ 	 
+94.31
+(1.68)
+ 	 
+98.13
+(0.14)
+ 	 
+98.26
+(0.16)
+ 	 
+90.91
+(2.98)
+ 	 
+75.79
+(13.32)
+ 	 
+74.72
+(4.08)
+ 	 
+82.99
+(1.44)
+ 
+(b)Test accuracy with fine-tuning duration 
+t
+ft
+=
+3
+.
+Carbon
+Budget (
+k
+)
+Training
+Time (
+T
+)
+No-Slack
+Baseline
+End time for fine-tuning (
+s
+)
+1	3	5	7	9	10	20	30	40	50	70	90	110	130	150
+7.98 / 82.0%	40	 
+98.82
+(0.06)
+ 	 
+97.53
+(0.07)
+ 	 
+97.69
+(0.11)
+ 	 
+97.63
+(0.3)
+ 	 
+97.72
+(0.15)
+ 	 
+97.78
+(0.1)
+ 	 
+98.92
+(0.03)
+ 	 
+98.93
+(0.05)
+ 	 
+98.98
+(0.07)
+ 	 
+99
+(0.04)
+ 	 
+99.01
+(0.08)
+ 	 
+97.16
+(0.19)
+ 	 
+97.33
+(0.11)
+ 	 
+97.97
+(0.12)
+ 	 
+97.74
+(0.55)
+ 	 
+97.82
+(0.1)
+ 
+6.2 / 63.67%	30	 
+98.66
+(0.07)
+ 	 
+97.16
+(0.12)
+ 	 
+97.28
+(0.1)
+ 	 
+97.48
+(0.35)
+ 	 
+97.54
+(0.21)
+ 	 
+97.5
+(0.09)
+ 	 
+97.36
+(0.06)
+ 	 
+98.8
+(0.02)
+ 	 
+98.97
+(0.05)
+ 	 
+99.02
+(0.02)
+ 	 
+99.02
+(0.04)
+ 	 
+99.05
+(0.01)
+ 	 
+99.09
+(0.05)
+ 	 
+99.06
+(0.06)
+ 	 
+99.05
+(0.07)
+ 	 
+99.01
+(0.04)
+ 
+4.24 / 43.52%	20	 
+98.36
+(0.09)
+ 	 
+96.47
+(0.18)
+ 	 
+96.72
+(0.14)
+ 	 
+96.74
+(0.04)
+ 	 
+96.77
+(0.17)
+ 	 
+96.8
+(0.39)
+ 	 
+97.03
+(0.14)
+ 	 
+97.35
+(0.21)
+ 	 
+98.9
+(0.04)
+ 	 
+98.89
+(0.05)
+ 	 
+98.99
+(0.01)
+ 	 
+98.9
+(0.01)
+ 	 
+94.22
+(1.18)
+ 	 
+93.21
+(2.6)
+ 	 
+94.97
+(1.54)
+ 	 
+92.41
+(1.34)
+ 
+1.98 / 20.38%	10	 
+97.42
+(0.08)
+ 	 
+93.5
+(0.83)
+ 	 
+94.05
+(0.37)
+ 	 
+95.18
+(0.49)
+ 	 
+95.65
+(0.31)
+ 	 
+95.77
+(0.22)
+ 	 
+96.13
+(0.42)
+ 	 
+97.1
+(0.31)
+ 	 
+97.45
+(0.27)
+ 	 
+98.82
+(0.04)
+ 	 
+98.71
+(0.04)
+ 	 
+98.57
+(0.16)
+ 	 
+98.1
+(0.24)
+ 	 
+98.06
+(0.3)
+ 	 
+95.8
+(1.59)
+ 	 
+92.24
+(1.4)
+ 
+1.77 / 18.23%	9	 
+97.37
+(0.08)
+ 	 
+91.44
+(1.64)
+ 	 
+91.84
+(1.18)
+ 	 
+91.32
+(0.96)
+ 	 
+91.52
+(0.55)
+ 	 
+89.2
+(1.34)
+ 	 
+87.31
+(1.8)
+ 	 
+92.07
+(1.52)
+ 	 
+94.2
+(0.43)
+ 	 
+98.63
+(0.07)
+ 	 
+98.52
+(0.17)
+ 	 
+98.38
+(0.04)
+ 	 
+97.78
+(0.31)
+ 	 
+97.76
+(0.28)
+ 	 
+92.93
+(0.82)
+ 	 
+92.41
+(1.71)
+ 
+0.94 / 9.69%	5	 
+95.83
+(0.34)
+ 	 
+82.04
+(0.98)
+ 	 
+84.91
+(1.16)
+ 	 
+88.55
+(0.48)
+ 	 
+84.64
+(0.85)
+ 	 
+91.32
+(0.96)
+ 	 
+90.05
+(0.9)
+ 	 
+92.12
+(0.12)
+ 	 
+94.21
+(0.46)
+ 	 
+88.91
+(1.6)
+ 	 
+97.13
+(0.15)
+ 	 
+22.7
+(15.46)
+ 	—	—	—	—
+0.74 / 7.65%	4	 
+95.03
+(0.4)
+ 	 
+78.99
+(0.94)
+ 	 
+82.87
+(1.56)
+ 	 
+95.14
+(0.47)
+ 	 
+90.88
+(0.71)
+ 	 
+97.39
+(0.14)
+ 	 
+91.09
+(0.77)
+ 	 
+95.7
+(0.25)
+ 	 
+96.64
+(0.28)
+ 	 
+97.89
+(0.09)
+ 	 
+96.51
+(0.36)
+ 	—	—	—	—	—
+VICarbon-Aware FL Scheduler and Algorithm
+Refer to caption
+Figure 7:Final test accuracy for our carbon-aware scheduler (y-axis) and the slack-agnostic baseline (x-axis) across varying carbon budgets. Each point corresponds to the best end time for fine-tuning configuration (from Table II) for a given budget level and is annotated with its associated budget.
+Building on previous sections, we now propose a unified carbon-aware FL scheduling formulation that integrates:
+(i) slack time 
+t
+sl
+≥
+0
+, extending training to 
+T
++
+t
+sl
+ rounds;
+(ii) 
+α
+-fair carbon allocation, parameterized by 
+α
+∈
+(
+0
+,
+1
+]
+;
+(iii) fine-tuning of duration 
+t
+ft
+, which selects all clients.
+
+Since fine-tuning may also consume a significant share of the carbon budget, we optimize its temporal placement. Formally, we define a movable fine-tuning window 
+ℱ
+​
+(
+s
+)
+=
+{
+T
++
+s
+−
+t
+ft
++
+1
+,
+…
+,
+T
++
+s
+}
+ and treat its end time 
+s
+∈
+{
+1
+,
+…
+,
+t
+sl
+}
+ as a decision variable. We then jointly optimize the scheduling matrix 
+A
+≔
+(
+a
+c
+(
+t
+)
+)
+c
+,
+t
+ and the fine-tuning placement 
+s
+ under a global carbon budget constraint: {maxi!} A, s∑_c=1^K ( ∑_t=1^T + t_sl (g_max - g_c^(t)) a_c^(t) )^α \addConstraint∑_c=1^K ∑_t=1^T + t_sl g_c^(t) a_c^(t)≤k \addConstraintF(s)= {T+s-t_ft+1, …, T+s} \addConstrainta_c^(t)∈{0,1}, ∀c,t ¡ T+s-t_ft+1 \addConstrainta_c^(t)=1,  ∀c,t ∈F(s) \addConstrainta_c^(t)=0,  ∀c,t ¿ T + s . The fine-tuning phase, during which all clients are selected (constraint (7)), is included in the global carbon budget 
+k
+ (constraint (7)), and training concludes at the last fine-tuning round 
+T
++
+s
+ (constraint (7)).
+
+Problem (7) is a non-convex integer nonlinear program, formulated as a maximization problem, and is NP-hard by reduction to the 0–1 knapsack problem. At the scale considered in our experiments, it can be solved to numerical optimality using the MOSEK solver through the CVXPY library, in under a minute. For larger-scale instances, the monotone and submodular structure of the objective under a single-knapsack constraint admits a polynomial-time greedy algorithm, which iteratively selects client–time slot pairs with the highest marginal carbon utility per unit cost and achieves a tight 
+(
+1
+−
+1
+/
+e
+)
+ approximation ratio [34].
+
+Algorithm 1 summarizes our carbon-aware FL training procedure. The server leverages our carbon-aware scheduler (Problem (7)) to precompute the client–time slot allocation (line 1). Only the selected clients (
+a
+c
+(
+t
+)
+=
+1
+) participate in training and send their model updates to the server (lines 1–1). To correct for selection bias, the server applies U-FedAvg aggregation (lines 1–1), switching to standard FedAvg during fine-tuning when all clients are selected (lines 1–1).
+
+VIIModel Accuracy under Carbon Constraints
+We benchmark our carbon-aware scheduler against a slack-agnostic baseline that runs standard FedAvg and selects all clients in every round until the carbon budget 
+k
+ is exhausted. This baseline achieves highest statistical representativeness, fastest per-round convergence (as full-client gradients provide the steepest unbiased descent direction), and uniform client selection (
+ρ
+H
+=
+0
+). It is a provably optimal baseline under stationary carbon intensity or sufficiently large budgets.
+
+Figure 7 and Table II report the final test accuracy of our carbon-aware algorithm under a wide range of carbon budgets and fine-tuning end times. Budgets vary from low-carbon regimes (5% of the full-budget reference) to high-carbon regimes (up to 82%). For each budget, we vary the fine-tuning end time 
+s
+∈
+{
+1
+,
+3
+,
+…
+,
+150
+}
+ and consider two fine-tuning durations 
+t
+ft
+∈
+{
+1
+,
+3
+}
+. We fix the fairness parameter to 
+α
+=
+0.1
+, identified in Figure 5 as providing an effective trade-off between test accuracy and carbon efficiency.
+
+Figure 7 compares the final test accuracy of our carbon-aware scheduler (y-axis) against the slack-agnostic baseline (x-axis) across matching carbon budgets. Each point is annotated with its associated budget level. Across most regimes, our scheduler consistently outperforms the baseline, particularly under tight budget constraints: at 5.73% and 7.65% of the full-budget reference, our scheduler achieves gains of +4.36 and +3.24 pp, respectively. As the budget increases, the margin narrows (e.g., +0.2 pp at 82%), showing that the baseline becomes strongly competitive in high-budget settings.
+
+Table II analyzes the impact of fine-tuning end time 
+s
+, fine-tuning duration 
+t
+ft
+, and slack time 
+t
+sl
+ on final test accuracy. At low carbon budgets (e.g., 9.69%), shorter training durations (
+T
++
+s
+≤
+55
+) with moderate slack (
+t
+sl
+≤
+50
+) achieve higher accuracy (+2.5 pp over no slack), as longer durations lead to sparser client selection and increase the risk of forgetting initial slots. Similarly, at low carbon budgets (9.69%), a shorter fine-tuning duration (
+t
+ft
+=
+1
+) achieves +1.2 pp higher accuracy than 
+t
+ft
+=
+3
+, likely due to the additional carbon cost of longer fine-tuning durations. In contrast, at high carbon budgets (e.g., 
+63.67
+%
+), longer training durations (
+T
++
+s
+≥
+100
+) with larger slack (
+t
+sl
+≥
+70
+) yield higher accuracy (+0.37 pp over no slack), as the extended horizon provides more opportunities to allocate low-carbon, high-utility training slots.
+
+VIIIConclusion
+This paper investigated emissions reduction in federated learning through carbon-aware training scheduling. Beyond quantifying potential carbon savings, we highlighted key challenges in balancing environmental objectives with learning performance, including statistical heterogeneity, selection bias, and temporal imbalance of training slots. By introducing a scheduler that integrates slack time, fairness-aware allocation, and fine-tuning, we take a first step toward addressing these challenges. We believe that exploring the trade-off between emission reductions and learning performance is key to developing sustainable, carbon-efficient federated learning systems.

@@ -1,0 +1,310 @@
+/* Regression Tracking - Minimal Design */
+
+/* Input Row */
+.input-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+/* Commits Container */
+#commitsContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--grey-200);
+    border: 1px solid var(--grey-200);
+}
+
+.commit-card {
+    background: var(--white);
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: start;
+    transition: background 0.15s ease;
+}
+
+.commit-card:hover {
+    background: var(--grey-100);
+}
+
+.commit-card.regression {
+    border-left: 3px solid var(--danger);
+}
+
+.commit-card.minor-regression {
+    border-left: 3px solid var(--warning);
+}
+
+.commit-card.improvement {
+    border-left: 3px solid var(--accent);
+}
+
+.commit-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.commit-sha {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--black);
+}
+
+.commit-timestamp {
+    font-size: 11px;
+    color: var(--grey-500);
+}
+
+.commit-stats {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+}
+
+.commit-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.commit-stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--grey-500);
+}
+
+.commit-stat-value {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--black);
+}
+
+.commit-stat-value.positive {
+    color: var(--accent);
+}
+
+.commit-stat-value.negative {
+    color: var(--danger);
+}
+
+.commit-badge {
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.commit-badge.improvement {
+    background: var(--accent);
+    color: var(--white);
+}
+
+.commit-badge.regression {
+    background: var(--danger);
+    color: var(--white);
+}
+
+.commit-badge.minor {
+    background: var(--warning);
+    color: var(--white);
+}
+
+.commit-badge.stable {
+    background: var(--grey-300);
+    color: var(--grey-700);
+}
+
+/* Regressions Container */
+#regressionsContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--grey-200);
+    border: 1px solid var(--grey-200);
+}
+
+.regression-alert {
+    background: var(--white);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.regression-alert.critical {
+    border-left: 4px solid var(--danger);
+}
+
+.regression-alert.major {
+    border-left: 4px solid var(--warning);
+}
+
+.regression-alert.minor {
+    border-left: 4px solid var(--grey-500);
+}
+
+.regression-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.regression-severity {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.regression-alert.critical .regression-severity {
+    color: var(--danger);
+}
+
+.regression-alert.major .regression-severity {
+    color: var(--warning);
+}
+
+.regression-alert.minor .regression-severity {
+    color: var(--grey-600);
+}
+
+.regression-percentage {
+    font-size: 32px;
+    font-weight: 300;
+    font-family: var(--font-mono);
+    color: var(--black);
+}
+
+.regression-details {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding: 16px;
+    background: var(--grey-100);
+}
+
+@media (min-width: 1024px) {
+    .regression-details {
+        grid-template-columns: repeat(6, 1fr);
+    }
+}
+
+.regression-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.regression-detail-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--grey-500);
+}
+
+.regression-detail-value {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--black);
+}
+
+.regression-message {
+    font-size: 14px;
+    color: var(--grey-700);
+    line-height: 1.5;
+}
+
+/* Budget Status */
+#budgetStatus {
+    padding: 20px;
+    border: 1px solid var(--grey-200);
+    text-align: center;
+}
+
+#budgetStatus.within {
+    background: var(--grey-100);
+    border-color: var(--accent);
+}
+
+#budgetStatus.exceeded {
+    background: var(--grey-100);
+    border-color: var(--danger);
+}
+
+.budget-value {
+    font-size: 42px;
+    font-weight: 300;
+    font-family: var(--font-mono);
+    margin-bottom: 8px;
+}
+
+#budgetStatus.within .budget-value {
+    color: var(--accent);
+}
+
+#budgetStatus.exceeded .budget-value {
+    color: var(--danger);
+}
+
+.budget-message {
+    font-size: 14px;
+    color: var(--grey-600);
+}
+
+/* Empty State */
+.empty-state {
+    padding: 48px 24px;
+    text-align: center;
+    border: 1px solid var(--grey-200);
+    background: var(--grey-100);
+}
+
+.empty-state.success {
+    border-color: var(--accent);
+}
+
+.empty-state p {
+    font-size: 15px;
+    color: var(--grey-600);
+}
+
+.empty-state.success p {
+    color: var(--accent);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .input-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .commit-card {
+        grid-template-columns: 1fr;
+    }
+    
+    .commit-stats {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .commit-stat {
+        align-items: flex-start;
+    }
+    
+    .regression-details {
+        grid-template-columns: 1fr;
+    }
+}

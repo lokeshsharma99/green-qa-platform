@@ -1,0 +1,260 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Green QA Platform - Carbon-Aware Test Scheduling Infrastructure'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name
+
+  WattTimeUser:
+    Type: String
+    Default: ''
+    Description: WattTime API username (optional)
+
+  WattTimePassword:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: WattTime API password (optional)
+
+Resources:
+  # DynamoDB Table for Carbon Intensity Data
+  CarbonIntensityTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'green_qa_carbon_intensity_${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: region_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        - AttributeName: region_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: GreenQA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # DynamoDB Table for Test Executions
+  TestExecutionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'green_qa_test_executions_${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: execution_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        - AttributeName: execution_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: GreenQA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # IAM Role for Lambda Functions
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'green-qa-lambda-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !GetAtt CarbonIntensityTable.Arn
+                  - !GetAtt TestExecutionsTable.Arn
+
+  # Carbon Ingestion Lambda
+  CarbonIngestionFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'green-qa-carbon-ingestion-${Environment}'
+      Runtime: python3.11
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref CarbonIntensityTable
+          WATTTIME_USER: !Ref WattTimeUser
+          WATTTIME_PASSWORD: !Ref WattTimePassword
+      Code:
+        ZipFile: |
+          # Placeholder - deploy actual code via SAM or CI/CD
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': 'Deploy actual code'}
+      Tags:
+        - Key: Project
+          Value: GreenQA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Schedule Optimizer Lambda
+  ScheduleOptimizerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'green-qa-schedule-optimizer-${Environment}'
+      Runtime: python3.11
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref CarbonIntensityTable
+          CARBON_THRESHOLD_LOW: '200'
+          CARBON_THRESHOLD_HIGH: '400'
+          DEFER_BENEFIT_THRESHOLD: '0.2'
+      Code:
+        ZipFile: |
+          # Placeholder - deploy actual code via SAM or CI/CD
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': 'Deploy actual code'}
+      Tags:
+        - Key: Project
+          Value: GreenQA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # EventBridge Rule for Scheduled Carbon Data Refresh
+  CarbonRefreshSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'green-qa-carbon-refresh-${Environment}'
+      Description: 'Refresh carbon intensity data every 30 minutes'
+      ScheduleExpression: 'rate(30 minutes)'
+      State: ENABLED
+      Targets:
+        - Id: CarbonIngestionTarget
+          Arn: !GetAtt CarbonIngestionFunction.Arn
+          Input: '{"action": "refresh"}'
+
+  # Permission for EventBridge to invoke Lambda
+  CarbonRefreshPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CarbonIngestionFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt CarbonRefreshSchedule.Arn
+
+  # API Gateway for external access
+  GreenQAApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub 'green-qa-api-${Environment}'
+      Description: 'Green QA Platform API'
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # API Resource: /carbon
+  CarbonResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref GreenQAApi
+      ParentId: !GetAtt GreenQAApi.RootResourceId
+      PathPart: carbon
+
+  # API Resource: /carbon/{region}
+  CarbonRegionResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref GreenQAApi
+      ParentId: !Ref CarbonResource
+      PathPart: '{region}'
+
+  # API Method: GET /carbon/{region}
+  GetCarbonMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref GreenQAApi
+      ResourceId: !Ref CarbonRegionResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ScheduleOptimizerFunction.Arn}/invocations'
+
+  # Permission for API Gateway to invoke Lambda
+  ApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ScheduleOptimizerFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${GreenQAApi}/*'
+
+  # API Deployment
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: GetCarbonMethod
+    Properties:
+      RestApiId: !Ref GreenQAApi
+      StageName: !Ref Environment
+
+Outputs:
+  CarbonIntensityTableName:
+    Description: DynamoDB table for carbon intensity data
+    Value: !Ref CarbonIntensityTable
+
+  TestExecutionsTableName:
+    Description: DynamoDB table for test execution data
+    Value: !Ref TestExecutionsTable
+
+  CarbonIngestionFunctionArn:
+    Description: Carbon Ingestion Lambda ARN
+    Value: !GetAtt CarbonIngestionFunction.Arn
+
+  ScheduleOptimizerFunctionArn:
+    Description: Schedule Optimizer Lambda ARN
+    Value: !GetAtt ScheduleOptimizerFunction.Arn
+
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${GreenQAApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+
+  ApiCarbonEndpoint:
+    Description: Carbon intensity API endpoint
+    Value: !Sub 'https://${GreenQAApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/carbon/{region}'

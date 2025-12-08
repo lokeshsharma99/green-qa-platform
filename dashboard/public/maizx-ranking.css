@@ -1,0 +1,282 @@
+/**
+ * MAIZX Region Ranking Widget Styles
+ * Aligned with typographic design system
+ */
+
+.maizx-widget {
+    background: var(--white);
+    border: 1px solid var(--grey-200);
+    padding: var(--grid-gutter);
+}
+
+.maizx-header {
+    padding-bottom: calc(var(--grid-unit) * 2.5);
+    border-bottom: 1px solid var(--grey-200);
+    margin-bottom: var(--grid-gutter);
+}
+
+.maizx-header h3 {
+    margin: 0 0 6px 0;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--grey-600);
+}
+
+.maizx-subtitle {
+    margin: 0;
+    color: var(--grey-500);
+    font-size: var(--text-sm);
+    font-family: var(--font-mono);
+}
+
+.maizx-config {
+    background: var(--grey-100);
+    padding: var(--grid-gutter);
+    border: 1px solid var(--grey-200);
+    margin-bottom: var(--grid-gutter);
+}
+
+.maizx-config h4 {
+    margin: 0 0 calc(var(--grid-unit) * 2) 0;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--grey-600);
+}
+
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--grid-gutter);
+    margin-bottom: var(--grid-gutter);
+}
+
+.config-item label {
+    display: block;
+    font-size: 12px;
+    color: var(--grey-600);
+    margin-bottom: calc(var(--grid-unit) * 1);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.config-item input,
+.config-item select {
+    width: 100%;
+    padding: calc(var(--grid-unit) * 2) calc(var(--grid-unit) * 2.5);
+    border: 1px solid var(--grey-300);
+    background: var(--white);
+    color: var(--black);
+    font-family: var(--font-mono);
+    font-size: 16px;
+}
+
+.config-item input:focus,
+.config-item select:focus {
+    outline: none;
+    border-color: var(--black);
+}
+
+.maizx-button {
+    width: 100%;
+    padding: calc(var(--grid-unit) * 2) var(--grid-gutter);
+    background: var(--black);
+    color: var(--white);
+    border: none;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.maizx-button:hover {
+    background: var(--grey-800);
+}
+
+.maizx-status {
+    padding: calc(var(--grid-gutter) * 2);
+    text-align: center;
+    color: var(--grey-500);
+    border: 1px solid var(--grey-200);
+}
+
+.maizx-disabled,
+.maizx-error {
+    display: flex;
+    align-items: center;
+    gap: var(--grid-gutter);
+    padding: var(--grid-gutter);
+    background: var(--grey-100);
+    border: 1px solid var(--grey-200);
+}
+
+.maizx-disabled .icon,
+.maizx-error .icon {
+    font-size: 32px;
+}
+
+.maizx-results {
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from { 
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.maizx-recommendation {
+    display: flex;
+    align-items: center;
+    gap: var(--grid-gutter);
+    padding: var(--grid-gutter);
+    background: var(--black);
+    color: var(--white);
+    margin-bottom: var(--grid-gutter);
+    border: 2px solid var(--black);
+}
+
+.rec-badge {
+    font-size: 48px;
+}
+
+.rec-details {
+    flex: 1;
+}
+
+.rec-region {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    margin-bottom: calc(var(--grid-unit) * 1);
+    font-family: var(--font-mono);
+}
+
+.rec-savings {
+    font-size: var(--text-base);
+    opacity: 0.85;
+}
+
+.maizx-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--grey-200);
+    border: 1px solid var(--grey-200);
+    margin-bottom: var(--grid-gutter);
+}
+
+.metric {
+    background: var(--white);
+    padding: var(--grid-gutter);
+    text-align: center;
+}
+
+.metric-label {
+    display: block;
+    font-size: 12px;
+    color: var(--grey-600);
+    margin-bottom: calc(var(--grid-unit) * 1);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+}
+
+.metric-value {
+    display: block;
+    font-size: 28px;
+    font-weight: 300;
+    color: var(--black);
+    font-family: var(--font-mono);
+    letter-spacing: -0.02em;
+}
+
+.maizx-top-regions h4 {
+    margin: 0 0 var(--grid-gutter) 0;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--grey-600);
+}
+
+.top-region {
+    display: flex;
+    align-items: center;
+    gap: var(--grid-gutter);
+    padding: var(--grid-gutter);
+    background: var(--white);
+    border: 1px solid var(--grey-200);
+    margin-bottom: 1px;
+    transition: background 0.15s;
+}
+
+.top-region:hover {
+    background: var(--grey-100);
+}
+
+.region-rank {
+    font-size: var(--text-xl);
+    font-weight: 300;
+    color: var(--grey-500);
+    min-width: 40px;
+    text-align: center;
+    font-family: var(--font-mono);
+}
+
+.region-details {
+    flex: 1;
+}
+
+.region-name {
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--black);
+    margin-bottom: 4px;
+    font-family: var(--font-mono);
+}
+
+.region-metrics {
+    display: flex;
+    gap: calc(var(--grid-unit) * 2);
+    font-size: var(--text-sm);
+    color: var(--grey-600);
+}
+
+.region-metrics .savings {
+    font-weight: 600;
+}
+
+.region-metrics .savings.positive {
+    color: var(--accent);
+}
+
+.region-badge {
+    font-size: 32px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .config-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .maizx-metrics {
+        grid-template-columns: 1fr;
+    }
+    
+    .maizx-recommendation {
+        flex-direction: column;
+        text-align: center;
+    }
+}

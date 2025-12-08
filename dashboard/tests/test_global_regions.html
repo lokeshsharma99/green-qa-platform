@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Global Regions</title>
+    <link rel="stylesheet" href="public/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="container">
+                <div class="header-inner">
+                    <a href="#" class="logo">Green<span class="logo-mark">QA</span></a>
+                    <div class="header-meta">
+                        <span class="text-xs text-grey">Test: Global Regions Display</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main">
+            <div class="container">
+                <section class="section" id="global-regions">
+                    <div class="section-header">
+                        <span class="section-title">AWS Worldwide Regions</span>
+                        <span class="text-xs text-muted">All 28 AWS regions · Data center carbon intensity with renewable energy</span>
+                    </div>
+                    <div class="global-region-grid" id="global-region-grid">
+                        <!-- Will be populated by script -->
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Sample data from optimizer
+        const sampleRegions = [
+            {
+                region_code: 'eu-north-1',
+                region_name: 'Europe (Stockholm)',
+                location: 'Stockholm, Sweden',
+                country: 'SE',
+                grid_intensity: 30,
+                datacenter_intensity: 0.7,
+                aws_renewable_pct: 0.98,
+                timezone: 'Europe/Stockholm',
+                lat: 59.33,
+                lon: 18.06
+            },
+            {
+                region_code: 'ca-central-1',
+                region_name: 'Canada (Central)',
+                location: 'Montreal, Canada',
+                country: 'CA',
+                grid_intensity: 20,
+                datacenter_intensity: 2.3,
+                aws_renewable_pct: 0.90,
+                timezone: 'America/Toronto',
+                lat: 45.50,
+                lon: -73.57
+            },
+            {
+                region_code: 'us-west-2',
+                region_name: 'US West (Oregon)',
+                location: 'Oregon, USA',
+                country: 'US',
+                grid_intensity: 280,
+                datacenter_intensity: 15.9,
+                aws_renewable_pct: 0.95,
+                timezone: 'America/Los_Angeles',
+                lat: 45.87,
+                lon: -119.69
+            },
+            {
+                region_code: 'af-south-1',
+                region_name: 'Africa (Cape Town)',
+                location: 'Cape Town, South Africa',
+                country: 'ZA',
+                grid_intensity: 900,
+                datacenter_intensity: 510.8,
+                aws_renewable_pct: 0.50,
+                timezone: 'Africa/Johannesburg',
+                lat: -33.92,
+                lon: 18.42
+            }
+        ];
+
+        function getIntensityClass(intensity) {
+            if (intensity <= 50) return 'very-low';
+            if (intensity <= 150) return 'low';
+            if (intensity <= 250) return 'moderate';
+            if (intensity <= 400) return 'high';
+            return 'very-high';
+        }
+
+        function renderGlobalRegionGrid(regions) {
+            const grid = document.getElementById('global-region-grid');
+            grid.innerHTML = '';
+            
+            const sortedRegions = [...regions].sort((a, b) => a.datacenter_intensity - b.datacenter_intensity);
+            
+            for (const region of sortedRegions) {
+                const intensity = Math.round(region.datacenter_intensity);
+                const intensityClass = getIntensityClass(intensity);
+                const renewablePct = Math.round(region.aws_renewable_pct * 100);
+                
+                const item = document.createElement('div');
+                item.className = 'global-region-item';
+                item.innerHTML = `
+                    <div class="global-region-header">
+                        <div class="global-region-info">
+                            <div class="global-region-code">${region.region_code}</div>
+                            <div class="global-region-location" title="${region.location}">${region.location}</div>
+                        </div>
+                        <div class="global-region-intensity-value ${intensityClass}">${intensity}</div>
+                    </div>
+                    <div class="global-region-footer">
+                        <div class="global-region-renewable">
+                            <span class="renewable-icon">⚡</span>
+                            <span>${renewablePct}% renewable</span>
+                        </div>
+                        <div class="global-region-unit">gCO₂/kWh</div>
+                    </div>
+                `;
+                
+                grid.appendChild(item);
+            }
+        }
+
+        // Render on load
+        document.addEventListener('DOMContentLoaded', () => {
+            renderGlobalRegionGrid(sampleRegions);
+        });
+    </script>
+</body>
+</html>

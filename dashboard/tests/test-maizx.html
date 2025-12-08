@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAIZX Widget Test</title>
+    <link rel="stylesheet" href="public/maizx-ranking.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #1976d2;
+        }
+        .info code {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .info strong {
+            display: block;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌍 MAIZX Multi-Region Optimization Test</h1>
+        
+        <div class="info">
+            <strong>ℹ️ Test Mode</strong>
+            This page tests the MAIZX widget with mock data. 
+            To use real API: Set <code>window.API_BASE_URL</code> and enable feature with <code>ENABLE_MAIZX_RANKING=true</code>
+            <br><br>
+            <strong>Expected Results:</strong>
+            • 60-67% carbon savings vs worst region<br>
+            • Recommendations based on carbon intensity, forecast, and scheduling flexibility<br>
+            • Top 3 regions ranked by MAIZX score
+        </div>
+
+        <div id="maizx-widget-container"></div>
+    </div>
+
+    <script>
+        // Mock API for testing
+        window.API_BASE_URL = 'mock';
+
+        // Override fetch for testing
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            console.log('Fetch called:', url, options);
+            
+            // Mock MAIZX ranking endpoint
+            if (url.includes('/v2/rank-regions')) {
+                const body = JSON.parse(options.body);
+                console.log('MAIZX request:', body);
+                
+                const workload = body.workload;
+                const regions = body.regions;
+                
+                // Calculate mock rankings
+                const rankings = Object.entries(regions).map(([region, ci]) => {
+                    // Mock forecast (lower CI in future)
+                    const forecast_ci = ci * (0.85 + Math.random() * 0.15);
+                    
+                    // Calculate carbon footprint
+                    const energy_kwh = (workload.vcpu_count * 10 * workload.duration_hours) / 1000;
+                    const cfp = energy_kwh * ci;
+                    const fcfp = energy_kwh * forecast_ci;
+                    
+                    // Priority weights
+                    const priority_weights = {
+                        'low': 0.3,
+                        'normal': 0.5,
+                        'high': 0.7,
+                        'critical': 0.9
+                    };
+                    const schedule_weight = priority_weights[workload.priority] || 0.5;
+                    
+                    // MAIZX score (lower is better)
+                    const maizx_score = 0.4 * cfp + 0.3 * fcfp + 0.2 * (cfp / fcfp) + 0.1 * schedule_weight;
+                    
+                    return {
+                        region,
+                        carbon_intensity: ci,
+                        forecast_ci,
+                        carbon_footprint_gco2: cfp,
+                        maizx_score
+                    };
+                }).sort((a, b) => a.maizx_score - b.maizx_score);
+                
+                const best = rankings[0];
+                const worst = rankings[rankings.length - 1];
+                const savings = ((worst.carbon_footprint_gco2 - best.carbon_footprint_gco2) / worst.carbon_footprint_gco2 * 100);
+                
+                // Determine recommendation
+                let recommendation = 'EXCELLENT';
+                if (best.carbon_intensity > 100) recommendation = 'GOOD';
+                if (best.carbon_intensity > 200) recommendation = 'FAIR';
+                if (best.carbon_intensity > 350) recommendation = 'POOR';
+                
+                const mockData = {
+                    recommended_region: best.region,
+                    carbon_intensity: best.carbon_intensity,
+                    forecast_carbon_intensity: best.forecast_ci,
+                    carbon_footprint_gco2: best.carbon_footprint_gco2,
+                    power_consumption_w: workload.vcpu_count * 10,
+                    maizx_score: best.maizx_score,
+                    recommendation: recommendation,
+                    savings_vs_worst_percent: Math.round(savings),
+                    top_3_regions: rankings.slice(0, 3).map((r, i) => ({
+                        region: r.region,
+                        carbon_intensity: r.carbon_intensity,
+                        carbon_footprint_gco2: r.carbon_footprint_gco2,
+                        maizx_score: r.maizx_score,
+                        savings_percent: i === 0 ? 0 : Math.round(((best.carbon_footprint_gco2 - r.carbon_footprint_gco2) / best.carbon_footprint_gco2) * 100),
+                        recommendation: r.carbon_intensity <= 100 ? 'EXCELLENT' : 
+                                      r.carbon_intensity <= 200 ? 'GOOD' : 
+                                      r.carbon_intensity <= 350 ? 'FAIR' : 'POOR'
+                    })),
+                    workload_summary: {
+                        duration_hours: workload.duration_hours,
+                        vcpu_count: workload.vcpu_count,
+                        memory_gb: workload.memory_gb,
+                        priority: workload.priority
+                    },
+                    timestamp: new Date().toISOString()
+                };
+                
+                console.log('MAIZX response:', mockData);
+                
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve(mockData)
+                });
+            }
+            
+            // Fall back to original fetch for other requests
+            return originalFetch(url, options);
+        };
+    </script>
+    
+    <script src="public/maizx-ranking.js"></script>
+</body>
+</html>

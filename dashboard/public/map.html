@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbon Intensity World Map - Green QA Platform</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="dark-mode.css">
+    <script src="dark-mode.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #ffffff;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+        
+        .map-header {
+            position: absolute;
+            top: 20px;
+            left: 60px;
+            z-index: 1000;
+            background: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .map-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .map-subtitle {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-width: 200px;
+        }
+        
+        .legend-title {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        
+        .legend-color {
+            width: 24px;
+            height: 16px;
+            border-radius: 3px;
+            margin-right: 8px;
+        }
+        
+        .region-popup {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .popup-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .popup-location {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 12px;
+        }
+        
+        .popup-intensity {
+            font-size: 24px;
+            font-weight: 300;
+            margin-bottom: 4px;
+        }
+        
+        .popup-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-top: 8px;
+        }
+        
+        .popup-badge.excellent {
+            background: #10b98120;
+            color: #10b981;
+        }
+        
+        .popup-badge.good {
+            background: #22c55e20;
+            color: #22c55e;
+        }
+        
+        .popup-badge.moderate {
+            background: #eab30820;
+            color: #eab308;
+        }
+        
+        .popup-badge.high {
+            background: #f9731620;
+            color: #f97316;
+        }
+        
+        .popup-renewable {
+            font-size: 11px;
+            color: #666;
+            margin-top: 8px;
+        }
+        
+        .back-link {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-decoration: none;
+            color: #000;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .back-link:hover {
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="map-header">
+        <div class="map-title">AWS Regions Carbon Intensity</div>
+        <div class="map-subtitle">Real-time data center carbon footprint</div>
+    </div>
+    
+    <a href="index.html" class="back-link">← Back to Dashboard</a>
+    
+    <div id="map"></div>
+    
+    <div class="legend">
+        <div class="legend-title">Carbon Intensity</div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #10b981;"></div>
+            <span>Excellent (≤ 25 gCO₂/kWh)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #22c55e;"></div>
+            <span>Good (≤ 75 gCO₂/kWh)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #eab308;"></div>
+            <span>Moderate (≤ 150 gCO₂/kWh)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #f97316;"></div>
+            <span>High (> 150 gCO₂/kWh)</span>
+        </div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Global Regions Data -->
+    <script src="global-regions-data.js"></script>
+    
+    <script>
+        // Initialize map
+        const map = L.map('map', {
+            center: [20, 0],
+            zoom: 2,
+            minZoom: 2,
+            maxZoom: 10,
+            worldCopyJump: true
+        });
+        
+        // Add tile layer (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Color based on intensity
+        function getColor(intensity) {
+            if (intensity <= 25) return '#10b981';  // Excellent
+            if (intensity <= 75) return '#22c55e';  // Good
+            if (intensity <= 150) return '#eab308'; // Moderate
+            return '#f97316';                        // High
+        }
+        
+        function getStatusBadge(intensity) {
+            if (intensity <= 25) return { text: 'Excellent', class: 'excellent' };
+            if (intensity <= 75) return { text: 'Good', class: 'good' };
+            if (intensity <= 150) return { text: 'Moderate', class: 'moderate' };
+            return { text: 'High', class: 'high' };
+        }
+        
+        // Add markers for each region
+        if (typeof GLOBAL_REGIONS_DATA !== 'undefined') {
+            GLOBAL_REGIONS_DATA.forEach(region => {
+                const intensity = region.datacenter_intensity;
+                const color = getColor(intensity);
+                const badge = getStatusBadge(intensity);
+                const renewablePct = Math.round(region.aws_renewable_pct * 100);
+                
+                // Create custom icon
+                const icon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="
+                        background: ${color};
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 50%;
+                        border: 3px solid white;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 11px;
+                        font-weight: 600;
+                        color: white;
+                    ">${Math.round(intensity)}</div>`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+                
+                // Create marker
+                const marker = L.marker([region.latitude, region.longitude], { icon })
+                    .addTo(map);
+                
+                // Create popup
+                const popupContent = `
+                    <div class="region-popup">
+                        <div class="popup-title">${region.region_code}</div>
+                        <div class="popup-location">${region.location}</div>
+                        <div class="popup-intensity" style="color: ${color};">
+                            ${intensity.toFixed(1)} <span style="font-size: 14px; color: #666;">gCO₂/kWh</span>
+                        </div>
+                        <div class="popup-badge ${badge.class}">${badge.text}</div>
+                        <div class="popup-renewable">⚡ ${renewablePct}% renewable energy</div>
+                    </div>
+                `;
+                
+                marker.bindPopup(popupContent, {
+                    maxWidth: 250,
+                    className: 'custom-popup'
+                });
+                
+                // Show popup on hover
+                marker.on('mouseover', function() {
+                    this.openPopup();
+                });
+            });
+        }
+        
+        // Fit bounds to show all markers
+        if (typeof GLOBAL_REGIONS_DATA !== 'undefined' && GLOBAL_REGIONS_DATA.length > 0) {
+            const bounds = L.latLngBounds(
+                GLOBAL_REGIONS_DATA.map(r => [r.latitude, r.longitude])
+            );
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+    </script>
+</body>
+</html>

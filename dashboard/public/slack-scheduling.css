@@ -1,0 +1,415 @@
+/**
+ * Slack-Aware Scheduling Widget Styles
+ * Aligned with typographic design system
+ */
+
+.slack-widget {
+    background: var(--white);
+    border: 1px solid var(--grey-200);
+    padding: var(--grid-gutter);
+}
+
+.slack-header {
+    padding-bottom: calc(var(--grid-unit) * 2.5);
+    border-bottom: 1px solid var(--grey-200);
+    margin-bottom: var(--grid-gutter);
+}
+
+.slack-header h3 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--grey-600);
+    margin: 0 0 6px 0;
+}
+
+.slack-subtitle {
+    font-size: var(--text-sm);
+    color: var(--grey-500);
+    margin: 0;
+    font-family: var(--font-mono);
+}
+
+/* Configuration */
+.slack-config {
+    margin-bottom: var(--grid-gutter);
+}
+
+.slack-config h4 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--grey-600);
+    margin: 0 0 var(--grid-gutter) 0;
+}
+
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--grid-gutter);
+    margin-bottom: var(--grid-gutter);
+}
+
+.config-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.config-item label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--grey-600);
+    margin-bottom: calc(var(--grid-unit) * 1);
+}
+
+.config-item input,
+.config-item select {
+    padding: calc(var(--grid-unit) * 2) calc(var(--grid-unit) * 2.5);
+    border: 1px solid var(--grey-300);
+    background: var(--white);
+    color: var(--black);
+    font-family: var(--font-mono);
+    font-size: 16px;
+}
+
+.config-item input:focus,
+.config-item select:focus {
+    outline: none;
+    border-color: var(--black);
+}
+
+.slack-button {
+    width: 100%;
+    padding: calc(var(--grid-unit) * 2) var(--grid-gutter);
+    background: var(--black);
+    color: var(--white);
+    border: none;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.slack-button:hover {
+    background: var(--grey-800);
+}
+
+/* Status */
+.slack-status {
+    padding: var(--grid-gutter);
+    background: var(--grey-100);
+    border: 1px solid var(--grey-200);
+    text-align: center;
+    margin-bottom: var(--grid-gutter);
+}
+
+.loading-spinner {
+    font-size: 24px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.slack-disabled,
+.slack-error {
+    display: flex;
+    align-items: center;
+    gap: var(--grid-gutter);
+    padding: var(--grid-gutter);
+    background: var(--grey-100);
+    border: 1px solid var(--grey-200);
+}
+
+.slack-disabled .icon,
+.slack-error .icon {
+    font-size: 32px;
+}
+
+.slack-disabled strong,
+.slack-error strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--black);
+    font-weight: 600;
+}
+
+.slack-disabled p,
+.slack-error p {
+    margin: 0;
+    color: var(--grey-600);
+    font-size: var(--text-sm);
+}
+
+.slack-disabled code {
+    background: var(--grey-200);
+    padding: 2px 6px;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+}
+
+/* Results */
+.slack-results {
+    margin-top: var(--grid-gutter);
+}
+
+/* Comparison Cards */
+.slack-comparison {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: var(--grid-gutter);
+    align-items: center;
+    margin-bottom: var(--grid-gutter);
+}
+
+.comparison-card {
+    background: var(--white);
+    border: 2px solid var(--grey-200);
+    padding: var(--grid-gutter);
+    transition: all 0.15s;
+}
+
+.comparison-card.immediate {
+    border-color: var(--danger);
+}
+
+.comparison-card.optimal {
+    border-color: var(--accent);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--grid-unit) * 1);
+    margin-bottom: calc(var(--grid-unit) * 2);
+    padding-bottom: calc(var(--grid-unit) * 2);
+    border-bottom: 1px solid var(--grey-200);
+}
+
+.card-icon {
+    font-size: 20px;
+}
+
+.card-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--grey-600);
+}
+
+.card-metric {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-bottom: calc(var(--grid-unit) * 1);
+}
+
+.metric-value {
+    font-size: 42px;
+    font-weight: 300;
+    color: var(--black);
+    font-family: var(--font-mono);
+    letter-spacing: -0.03em;
+}
+
+.metric-unit {
+    font-size: var(--text-sm);
+    color: var(--grey-500);
+}
+
+.card-detail {
+    font-size: var(--text-sm);
+    color: var(--grey-600);
+}
+
+/* Comparison Arrow */
+.comparison-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(var(--grid-unit) * 1);
+}
+
+.arrow-icon {
+    font-size: 32px;
+    color: var(--grey-400);
+}
+
+.arrow-savings {
+    padding: calc(var(--grid-unit) * 1) calc(var(--grid-unit) * 2);
+    background: var(--black);
+    color: var(--white);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+}
+
+.arrow-savings.high {
+    background: var(--accent);
+    color: var(--white);
+}
+
+.arrow-savings.medium {
+    background: var(--warning);
+    color: var(--white);
+}
+
+.arrow-savings.low {
+    background: var(--danger);
+    color: var(--white);
+}
+
+/* Recommendation */
+.slack-recommendation {
+    background: var(--black);
+    color: var(--white);
+    border: 2px solid var(--black);
+    padding: var(--grid-gutter);
+    margin-bottom: var(--grid-gutter);
+}
+
+.rec-badge {
+    font-size: var(--text-base);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: calc(var(--grid-unit) * 1);
+}
+
+.rec-text {
+    font-size: var(--text-sm);
+    opacity: 0.85;
+}
+
+/* Timeline */
+.slack-timeline {
+    margin-bottom: var(--grid-gutter);
+}
+
+.slack-timeline h4 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--grey-600);
+    margin: 0 0 var(--grid-gutter) 0;
+}
+
+#slack-timeline-chart {
+    height: 300px;
+    border: 1px solid var(--grey-200);
+    padding: var(--grid-gutter);
+}
+
+/* Windows List */
+.slack-windows h4 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--grey-600);
+    margin: 0 0 var(--grid-gutter) 0;
+}
+
+.window-item {
+    display: flex;
+    align-items: center;
+    gap: var(--grid-gutter);
+    padding: var(--grid-gutter);
+    background: var(--white);
+    border: 1px solid var(--grey-200);
+    margin-bottom: 1px;
+    transition: background 0.15s;
+}
+
+.window-item:hover {
+    background: var(--grey-100);
+}
+
+.window-item.best {
+    background: var(--black);
+    color: var(--white);
+    border-color: var(--black);
+}
+
+.window-rank {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--grey-200);
+    font-weight: 600;
+    color: var(--black);
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+}
+
+.window-item.best .window-rank {
+    background: var(--white);
+    color: var(--black);
+}
+
+.window-details {
+    flex: 1;
+}
+
+.window-time {
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--black);
+    margin-bottom: 4px;
+    font-family: var(--font-mono);
+}
+
+.window-item.best .window-time {
+    color: var(--white);
+}
+
+.window-metrics {
+    display: flex;
+    gap: var(--grid-gutter);
+    font-size: var(--text-sm);
+    color: var(--grey-600);
+}
+
+.window-item.best .window-metrics {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.window-badge {
+    padding: calc(var(--grid-unit) * 1) calc(var(--grid-unit) * 2);
+    background: var(--accent);
+    color: var(--white);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .slack-comparison {
+        grid-template-columns: 1fr;
+        gap: calc(var(--grid-unit) * 2);
+    }
+    
+    .comparison-arrow {
+        transform: rotate(90deg);
+    }
+    
+    .config-grid {
+        grid-template-columns: 1fr;
+    }
+}

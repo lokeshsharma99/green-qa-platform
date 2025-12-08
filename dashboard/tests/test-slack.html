@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slack Scheduling Widget Test</title>
+    <link rel="stylesheet" href="public/slack-scheduling.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #1976d2;
+        }
+        .info code {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .info strong {
+            display: block;
+            margin-bottom: 8px;
+        }
+    </style>
+    <!-- Chart.js for timeline visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>⏰ Slack-Aware Scheduling Widget Test</h1>
+        
+        <div class="info">
+            <strong>ℹ️ Test Mode</strong>
+            This page tests the slack scheduling widget with mock data. 
+            To use real API: Set <code>window.API_BASE_URL</code> and enable feature with <code>ENABLE_SLACK_SCHEDULING=true</code>
+            <br><br>
+            <strong>Expected Results:</strong>
+            • 20-60% carbon savings through temporal shifting<br>
+            • Recommendation based on savings vs delay tradeoff<br>
+            • Timeline chart showing carbon footprint over time<br>
+            • Top 5 scheduling windows ranked by carbon
+        </div>
+
+        <div id="slack-widget-container"></div>
+    </div>
+
+    <script>
+        // Mock API for testing
+        window.API_BASE_URL = 'mock';
+
+        // Override fetch for testing
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            console.log('Fetch called:', url, options);
+            
+            // Mock slack scheduling endpoint
+            if (url.includes('/v2/optimize-schedule')) {
+                const body = JSON.parse(options.body);
+                console.log('Slack scheduling request:', body);
+                
+                const {
+                    workload_duration_hours,
+                    deadline_hours,
+                    current_carbon_intensity,
+                    vcpu_count,
+                    memory_gb
+                } = body;
+                
+                // Calculate immediate carbon
+                const cpu_energy = (vcpu_count * 10 * workload_duration_hours) / 1000;
+                const memory_energy = memory_gb * 0.000392 * workload_duration_hours;
+                const total_energy = (cpu_energy + memory_energy) * 1.135;
+                const immediate_carbon = total_energy * current_carbon_intensity;
+                
+                // Generate scheduling windows
+                const slack_hours = deadline_hours - workload_duration_hours;
+                const windows = [];
+                
+                for (let delay = 0; delay <= Math.min(slack_hours, 12); delay++) {
+                    // Simulate varying carbon intensity
+                    const hour_of_day = (new Date().getHours() + delay) % 24;
+                    const daily_factor = 1.0 + 0.3 * Math.sin((hour_of_day - 6) * Math.PI / 12);
+                    const noise = (Math.random() - 0.5) * 0.2;
+                    const ci_factor = daily_factor + noise;
+                    const avg_ci = current_carbon_intensity * ci_factor;
+                    const carbon = total_energy * avg_ci;
+                    
+                    const start_time = new Date(Date.now() + delay * 3600000).toISOString();
+                    
+                    windows.push({
+                        start_hour: delay,
+                        start_time: start_time,
+                        delay_hours: delay,
+                        avg_carbon_intensity: Math.round(avg_ci * 100) / 100,
+                        carbon_footprint_gco2: Math.round(carbon * 100) / 100
+                    });
+                }
+                
+                // Sort by carbon (lowest first)
+                windows.sort((a, b) => a.carbon_footprint_gco2 - b.carbon_footprint_gco2);
+                
+                const optimal = windows[0];
+                const savings_gco2 = immediate_carbon - optimal.carbon_footprint_gco2;
+                const savings_percent = (savings_gco2 / immediate_carbon * 100);
+                
+                // Determine recommendation
+                let recommendation = 'EXECUTE_NOW';
+                if (savings_percent >= 20) {
+                    recommendation = 'DELAY_RECOMMENDED';
+                } else if (savings_percent >= 10 && optimal.delay_hours <= slack_hours * 0.5) {
+                    recommendation = 'DELAY_OPTIONAL';
+                }
+                
+                const mockData = {
+                    immediate_execution: {
+                        carbon_footprint_gco2: Math.round(immediate_carbon * 100) / 100,
+                        start_time: 'now',
+                        carbon_intensity: current_carbon_intensity,
+                        duration_hours: workload_duration_hours
+                    },
+                    optimal_execution: {
+                        carbon_footprint_gco2: optimal.carbon_footprint_gco2,
+                        start_time: optimal.start_time,
+                        delay_hours: optimal.delay_hours,
+                        carbon_intensity: optimal.avg_carbon_intensity,
+                        duration_hours: workload_duration_hours
+                    },
+                    savings: {
+                        gco2: Math.round(savings_gco2 * 100) / 100,
+                        percent: Math.round(savings_percent * 10) / 10
+                    },
+                    recommendation: recommendation,
+                    reason: recommendation === 'DELAY_RECOMMENDED' 
+                        ? `High carbon savings (${savings_percent.toFixed(1)}%) justify ${optimal.delay_hours}h delay`
+                        : recommendation === 'DELAY_OPTIONAL'
+                        ? `Moderate savings (${savings_percent.toFixed(1)}%) with short ${optimal.delay_hours}h delay`
+                        : `Low savings (${savings_percent.toFixed(1)}%) - execute immediately`,
+                    scheduling_windows: windows.slice(0, 10),
+                    slack_hours: slack_hours,
+                    deadline_hours: deadline_hours
+                };
+                
+                console.log('Slack scheduling response:', mockData);
+                
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve(mockData)
+                });
+            }
+            
+            // Fall back to original fetch for other requests
+            return originalFetch(url, options);
+        };
+    </script>
+    
+    <script src="public/slack-scheduling.js"></script>
+</body>
+</html>

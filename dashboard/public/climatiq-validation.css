@@ -1,0 +1,225 @@
+/**
+ * Climatiq Validation Page - Design System Aligned
+ * Matches styles.css design language exactly
+ */
+
+/* ============================================
+   Validation Results Display
+   ============================================ */
+
+#validation-results {
+    display: grid;
+    gap: 1px;
+    background: var(--grey-200);
+    border: 1px solid var(--grey-200);
+}
+
+.validation-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--grey-200);
+}
+
+.comparison-side {
+    background: var(--white);
+    padding: calc(var(--grid-gutter) * 1.5);
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.comparison-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--grey-600);
+    margin-bottom: calc(var(--grid-unit) * 2);
+}
+
+.comparison-value {
+    font-size: 56px;
+    font-weight: 300;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--black);
+    font-family: var(--font-mono);
+    margin-bottom: calc(var(--grid-unit) * 1.5);
+}
+
+.comparison-value.accent {
+    color: var(--accent);
+}
+
+.comparison-detail {
+    display: flex;
+    justify-content: space-between;
+    padding: calc(var(--grid-unit) * 1.5) 0;
+    border-bottom: 1px solid var(--grey-200);
+    font-size: var(--text-sm);
+}
+
+.comparison-detail:last-child {
+    border-bottom: none;
+}
+
+.comparison-detail .label {
+    color: var(--grey-600);
+}
+
+.comparison-detail .value {
+    font-weight: 500;
+    color: var(--black);
+    font-family: var(--font-mono);
+}
+
+.validation-status {
+    grid-column: 1 / -1;
+    background: var(--grey-100);
+    padding: calc(var(--grid-gutter) * 2);
+    text-align: center;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.validation-badge {
+    display: inline-block;
+    padding: calc(var(--grid-unit) * 1.5) calc(var(--grid-unit) * 3);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border: 2px solid var(--grey-200);
+}
+
+.validation-badge.passed {
+    background: var(--white);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.validation-badge.review {
+    background: var(--white);
+    color: var(--warning);
+    border-color: var(--warning);
+}
+
+.validation-badge.failed {
+    background: var(--white);
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+/* ============================================
+   Search Results Table
+   ============================================ */
+
+.results-table-container {
+    border: 1px solid var(--grey-200);
+    overflow-x: auto;
+}
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+}
+
+.results-table th {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--grey-600);
+    text-align: left;
+    padding: calc(var(--grid-unit) * 2.5) var(--grid-gutter);
+    border-bottom: 2px solid var(--grey-200);
+    background: var(--grey-100);
+}
+
+.results-table td {
+    padding: calc(var(--grid-unit) * 2.5) var(--grid-gutter);
+    border-bottom: 1px solid var(--grey-200);
+    color: var(--black);
+}
+
+.results-table tr:last-child td {
+    border-bottom: none;
+}
+
+.results-table .mono {
+    font-family: var(--font-mono);
+    font-size: 14px;
+}
+
+.quality-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.quality-badge.high {
+    background: #10b98120;
+    color: #10b981;
+}
+
+.quality-badge.medium {
+    background: #eab30820;
+    color: #eab308;
+}
+
+.quality-badge.low {
+    background: #ef444420;
+    color: #ef4444;
+}
+
+/* ============================================
+   Loading & Empty States
+   ============================================ */
+
+.loading-state {
+    text-align: center;
+    padding: calc(var(--grid-gutter) * 3);
+    color: var(--grey-500);
+    font-size: var(--text-sm);
+}
+
+.empty-state {
+    text-align: center;
+    padding: calc(var(--grid-gutter) * 4);
+    color: var(--grey-400);
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    margin-bottom: calc(var(--grid-unit) * 2);
+    opacity: 0.5;
+}
+
+.empty-state-text {
+    font-size: var(--text-sm);
+    color: var(--grey-500);
+}
+
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+
+@media (max-width: 768px) {
+    .validation-comparison {
+        grid-template-columns: 1fr;
+    }
+    
+    .comparison-value {
+        font-size: 32px;
+    }
+}

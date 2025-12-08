@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Validation — ZeroCarb</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dark-mode.css">
+    <link rel="stylesheet" href="climatiq-validation.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="dark-mode.js"></script>
+    <link rel="icon" href="logo.png" type="image/png">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="header-inner">
+                    <a href="index.html" class="logo">
+                        <img src="logo.png" alt="ZeroCarb" class="logo-image">
+                    </a>
+                    <nav class="header-nav">
+                        <a href="index.html" class="nav-link">Dashboard</a>
+                        <a href="advanced.html" class="nav-link">Advanced</a>
+                        <a href="energy-profiling.html" class="nav-link">Energy Profiling</a>
+                        <a href="regression-tracking.html" class="nav-link">Regression Tracking</a>
+                        <a href="climatiq-validation.html" class="nav-link active">Data Validation</a>
+                    </nav>
+                    <div class="header-meta">
+                        <span class="text-xs text-grey">Climatiq Integration</span>
+                        <span class="text-xs text-grey">Updated <span id="last-updated-time">--:--</span></span>
+                        <button class="section-action" onclick="refreshData()">Refresh</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <div class="container">
+                
+                <!-- Stats Row -->
+                <div class="stats-row" id="stats-section">
+                    <div class="stat-block">
+                        <div class="stat-label">Datasets Available</div>
+                        <div class="stat-value" id="total-datasets">80+</div>
+                        <div class="stat-detail">Industry standards</div>
+                    </div>
+                    <div class="stat-block">
+                        <div class="stat-label">Emission Factors</div>
+                        <div class="stat-value" id="total-factors">5,000+</div>
+                        <div class="stat-detail">Validated sources</div>
+                    </div>
+                    <div class="stat-block">
+                        <div class="stat-label">Validation Status</div>
+                        <div class="stat-value accent" id="validation-status">Active</div>
+                        <div class="stat-detail">Real-time checks</div>
+                    </div>
+                    <div class="stat-block">
+                        <div class="stat-label">Data Quality</div>
+                        <div class="stat-value" id="data-quality">High</div>
+                        <div class="stat-detail">Multi-source</div>
+                    </div>
+                </div>
+
+                <!-- Validation Section -->
+                <section class="section" id="validation">
+                    <div class="section-header">
+                        <span class="section-title">Calculation Validation</span>
+                        <span class="text-xs text-muted">Compare real-time data with industry standards</span>
+                    </div>
+                    
+                    <div class="calculator">
+                        <div class="calculator-header">
+                            <div class="calculator-title">Region Validator</div>
+                            <div class="calculator-subtitle">Cross-check carbon intensity values</div>
+                        </div>
+                        <div class="calculator-body">
+                            <div class="calc-inputs">
+                                <div class="input-group full">
+                                    <label class="input-label">AWS Region</label>
+                                    <select class="input-field" id="validation-region">
+                                        <option value="eu-west-2">eu-west-2 (London)</option>
+                                        <option value="eu-west-1">eu-west-1 (Ireland)</option>
+                                        <option value="eu-north-1">eu-north-1 (Stockholm)</option>
+                                        <option value="eu-central-1">eu-central-1 (Frankfurt)</option>
+                                        <option value="us-east-1">us-east-1 (N. Virginia)</option>
+                                        <option value="us-west-2">us-west-2 (Oregon)</option>
+                                    </select>
+                                </div>
+                                <div class="input-group full calc-action">
+                                    <button class="btn-text" onclick="validateRegion()">Validate Region →</button>
+                                </div>
+                            </div>
+                            <div class="calc-results" id="calc-results">
+                                <div id="validation-results"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Emission Factor Browser Section -->
+                <section class="section" id="browser">
+                    <div class="section-header">
+                        <span class="section-title">Emission Factor Browser</span>
+                        <span class="text-xs text-muted">Search 5,000+ factors from trusted sources</span>
+                    </div>
+                    
+                    <div class="calculator">
+                        <div class="calculator-header">
+                            <div class="calculator-title">Factor Search</div>
+                            <div class="calculator-subtitle">Explore emission factors by region and type</div>
+                        </div>
+                        <div class="calculator-body">
+                            <div class="calc-inputs">
+                                <div class="input-group full">
+                                    <label class="input-label">Search Query</label>
+                                    <input type="text" class="input-field" id="search-query" placeholder="e.g., electricity UK" />
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label">Region</label>
+                                    <select class="input-field" id="search-region">
+                                        <option value="">All Regions</option>
+                                        <option value="GB">United Kingdom</option>
+                                        <option value="US">United States</option>
+                                        <option value="DE">Germany</option>
+                                        <option value="FR">France</option>
+                                        <option value="SE">Sweden</option>
+                                        <option value="NO">Norway</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label">Unit Type</label>
+                                    <select class="input-field" id="search-unit-type">
+                                        <option value="">All Units</option>
+                                        <option value="Energy">Energy (kWh)</option>
+                                        <option value="Weight">Weight (kg)</option>
+                                        <option value="Volume">Volume (L)</option>
+                                        <option value="Distance">Distance (km)</option>
+                                        <option value="Money">Money (USD)</option>
+                                    </select>
+                                </div>
+                                <div class="input-group full calc-action">
+                                    <button class="btn-text" onclick="searchFactors()">Search Factors →</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="search-results" style="margin-top: 24px;"></div>
+                </section>
+
+                <!-- Data Sources Section -->
+                <section class="section" id="sources">
+                    <div class="section-header">
+                        <span class="section-title">Data Sources</span>
+                        <span class="text-xs text-muted">Multi-source integration for maximum accuracy</span>
+                    </div>
+                    
+                    <div class="region-grid">
+                        <div class="region-item">
+                            <div>
+                                <div class="region-name">UK Grid ESO</div>
+                                <div class="region-location">Real-time UK carbon intensity</div>
+                            </div>
+                            <div class="region-intensity">
+                                <div class="region-value very-low">Live</div>
+                                <div class="region-unit">Free</div>
+                            </div>
+                        </div>
+                        
+                        <div class="region-item">
+                            <div>
+                                <div class="region-name">ElectricityMaps</div>
+                                <div class="region-location">Global carbon intensity data</div>
+                            </div>
+                            <div class="region-intensity">
+                                <div class="region-value very-low">Live</div>
+                                <div class="region-unit">Premium</div>
+                            </div>
+                        </div>
+                        
+                        <div class="region-item">
+                            <div>
+                                <div class="region-name">WattTime</div>
+                                <div class="region-location">US marginal emissions</div>
+                            </div>
+                            <div class="region-intensity">
+                                <div class="region-value very-low">Live</div>
+                                <div class="region-unit">Premium</div>
+                            </div>
+                        </div>
+                        
+                        <div class="region-item">
+                            <div>
+                                <div class="region-name">IPCC</div>
+                                <div class="region-location">Climate science standards</div>
+                            </div>
+                            <div class="region-intensity">
+                                <div class="region-value moderate">Static</div>
+                                <div class="region-unit">Free</div>
+                            </div>
+                        </div>
+                        
+                        <div class="region-item">
+                            <div>
+                                <div class="region-name">EPA eGRID</div>
+                                <div class="region-location">US emission factors</div>
+                            </div>
+                            <div class="region-intensity">
+                                <div class="region-value moderate">Static</div>
+                                <div class="region-unit">Free</div>
+                            </div>
+                        </div>
+                        
+                        <div class="region-item">
+                            <div>
+                                <div class="region-name">EEA</div>
+                                <div class="region-location">European emission factors</div>
+                            </div>
+                            <div class="region-intensity">
+                                <div class="region-value moderate">Static</div>
+                                <div class="region-unit">Free</div>
+                            </div>
+                        </div>
+                        
+                        <div class="region-item">
+                            <div>
+                                <div class="region-name">Ember Climate</div>
+                                <div class="region-location">Global electricity data</div>
+                            </div>
+                            <div class="region-intensity">
+                                <div class="region-value moderate">Static</div>
+                                <div class="region-unit">Free</div>
+                            </div>
+                        </div>
+                        
+                        <div class="region-item" style="background: var(--grey-100);">
+                            <div>
+                                <div class="region-name">Climatiq</div>
+                                <div class="region-location">80+ datasets, 5000+ factors</div>
+                            </div>
+                            <div class="region-intensity">
+                                <div class="region-value accent">Active</div>
+                                <div class="region-unit">Free Tier</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Methodology Section -->
+                <section class="section" id="methodology">
+                    <div class="section-header">
+                        <span class="section-title">Methodology</span>
+                        <span class="text-xs text-muted">How we ensure data accuracy</span>
+                    </div>
+                    
+                    <div class="insights-grid">
+                        <div class="insight-card">
+                            <div class="insight-label">Multi-Source Data</div>
+                            <div class="insight-value">6+</div>
+                            <div class="insight-detail">Sources with intelligent fallback chains</div>
+                        </div>
+                        
+                        <div class="insight-card">
+                            <div class="insight-label">Real-Time Priority</div>
+                            <div class="insight-value accent">Live</div>
+                            <div class="insight-detail">Real-time data prioritized over static</div>
+                        </div>
+                        
+                        <div class="insight-card">
+                            <div class="insight-label">Validation</div>
+                            <div class="insight-value">80+</div>
+                            <div class="insight-detail">Cross-validate with Climatiq datasets</div>
+                        </div>
+                        
+                        <div class="insight-card">
+                            <div class="insight-label">Transparency</div>
+                            <div class="insight-value accent">Full</div>
+                            <div class="insight-detail">Complete source attribution</div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-inner">
+                    <span class="footer-text">Data validation powered by Climatiq integration</span>
+                    <div class="footer-links">
+                        <a href="index.html" class="footer-link">Dashboard</a>
+                        <a href="advanced.html" class="footer-link">Advanced</a>
+                        <a href="energy-profiling.html" class="footer-link">Energy Profiling</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="climatiq-validation.js?v=2"></script>
+</body>
+</html>

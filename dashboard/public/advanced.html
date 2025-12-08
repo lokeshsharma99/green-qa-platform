@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Features — ZeroCarb</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dark-mode.css">
+    <link rel="stylesheet" href="excess-power.css">
+    <link rel="stylesheet" href="forecast.css">
+    <link rel="stylesheet" href="maizx-ranking.css">
+    <link rel="stylesheet" href="slack-scheduling.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="icon" href="logo.png" type="image/png">
+    <script src="dark-mode.js"></script>
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="header-inner">
+                    <a href="index.html" class="logo">
+                        <img src="logo.png" alt="ZeroCarb" class="logo-image">
+                    </a>
+                    <nav class="header-nav">
+                        <a href="index.html" class="nav-link">Dashboard</a>
+                        <a href="#forecast" class="nav-link active" data-section="forecast">Forecast</a>
+                        <a href="#excess-power" class="nav-link" data-section="excess-power">Excess Power</a>
+                        <a href="#maizx" class="nav-link" data-section="maizx">MAIZX</a>
+                        <a href="#slack" class="nav-link" data-section="slack">Slack</a>
+                        <a href="energy-profiling.html" class="nav-link">Energy Profiling</a>
+                        <a href="regression-tracking.html" class="nav-link">Regression Tracking</a>
+                    </nav>
+                    <div class="header-meta">
+                        <span class="text-xs text-grey">Advanced Features</span>
+                        <span class="text-xs text-grey">Updated <span id="last-updated-time">--:--</span></span>
+                        <button class="section-action" onclick="refreshData()">Refresh</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <div class="container">
+                
+                <!-- Carbon Intensity Forecast Section -->
+                <section class="section" id="forecast">
+                    <div class="section-header">
+                        <span class="section-title">Carbon Intensity Forecast
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">What is Carbon Intensity Forecasting?</div>
+                                    <div class="tooltip-content">
+                                        Predicts future grid carbon intensity (gCO₂/kWh) for the next 24-72 hours. 
+                                        Schedule workloads during low-carbon periods to reduce emissions.
+                                    </div>
+                                    <div class="tooltip-breakdown">
+                                        Based on CarbonX methodology:<br>
+                                        • Time series foundation models<br>
+                                        • Weather patterns (wind/solar)<br>
+                                        • Historical grid data<br>
+                                        • Uncertainty quantification
+                                    </div>
+                                    <div class="tooltip-example">
+                                        Example: Forecast shows low carbon intensity at 2 AM (high renewable generation). 
+                                        Schedule batch jobs then to reduce CO₂ by up to 60%.
+                                    </div>
+                                </div>
+                            </span>
+                        </span>
+                        <span class="section-subtitle">Multi-day predictions with uncertainty quantification (CarbonX-inspired)</span>
+                    </div>
+                    <div id="forecast-widget-container"></div>
+                </section>
+
+                <!-- Excess Power Analysis Section -->
+                <section class="section" id="excess-power">
+                    <div class="section-header">
+                        <span class="section-title">Excess Power Analysis
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">What is Excess Power?</div>
+                                    <div class="tooltip-content">
+                                        Renewable energy that would otherwise be wasted (curtailed) because supply exceeds demand. 
+                                        Running workloads during these periods uses "free" clean energy.
+                                    </div>
+                                    <div class="tooltip-breakdown">
+                                        Curtailment occurs when:<br>
+                                        • High wind/solar generation<br>
+                                        • Low electricity demand<br>
+                                        • Grid capacity constraints<br>
+                                        • Negative electricity prices
+                                    </div>
+                                    <div class="tooltip-example">
+                                        Example: On a sunny, windy day with low demand, excess solar/wind power is curtailed. 
+                                        Running workloads then has near-zero carbon footprint.
+                                    </div>
+                                </div>
+                            </span>
+                        </span>
+                        <span class="section-subtitle">Real-time renewable curtailment & scheduling recommendations</span>
+                    </div>
+                    <div id="excess-power-widget"></div>
+                </section>
+
+                <!-- MAIZX Multi-Region Ranking Section -->
+                <section class="section" id="maizx">
+                    <div class="section-header">
+                        <span class="section-title">Multi-Region Optimization (MAIZX)
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">What is MAIZX?</div>
+                                    <div class="tooltip-content">
+                                        Marginal-Aware Intelligent Zero-carbon eXecution framework. 
+                                        Ranks cloud regions by carbon intensity to find the cleanest location for your workload.
+                                    </div>
+                                    <div class="tooltip-breakdown">
+                                        MAIZX considers:<br>
+                                        • Marginal carbon intensity (not average)<br>
+                                        • Real-time grid conditions<br>
+                                        • Regional renewable availability<br>
+                                        • Network transfer emissions
+                                    </div>
+                                    <div class="tooltip-example">
+                                        Example: Running in eu-north-1 (Sweden, 9 gCO₂/kWh) vs us-east-1 (Virginia, 417 gCO₂/kWh) 
+                                        reduces emissions by 98% for the same workload.
+                                    </div>
+                                </div>
+                            </span>
+                        </span>
+                        <span class="section-subtitle">85% CO₂ reduction potential through intelligent region selection</span>
+                    </div>
+                    <div id="maizx-widget-container"></div>
+                </section>
+
+                <!-- Slack-Aware Scheduling Section -->
+                <section class="section" id="slack">
+                    <div class="section-header">
+                        <span class="section-title">Slack-Aware Scheduling
+                            <span class="tooltip-trigger">
+                                <span class="info-icon">?</span>
+                                <div class="tooltip">
+                                    <div class="tooltip-title">What is Slack-Aware Scheduling?</div>
+                                    <div class="tooltip-content">
+                                        Delays workload execution within deadline constraints to run during low-carbon periods. 
+                                        "Slack" is the flexible time window between now and the deadline.
+                                    </div>
+                                    <div class="tooltip-breakdown">
+                                        How it works:<br>
+                                        • Job submitted at 9 AM<br>
+                                        • Deadline: 5 PM (8 hours slack)<br>
+                                        • Execution time: 2 hours<br>
+                                        • Scheduler finds lowest carbon 2-hour window before 5 PM
+                                    </div>
+                                    <div class="tooltip-example">
+                                        Example: ML training job with 24-hour deadline. 
+                                        Scheduler delays it to run overnight when grid is 60% cleaner, 
+                                        reducing CO₂ by 57% with no impact on delivery.
+                                    </div>
+                                </div>
+                            </span>
+                        </span>
+                        <span class="section-subtitle">57% CO₂ reduction through temporal shifting with deadline flexibility</span>
+                    </div>
+                    <div id="slack-widget-container"></div>
+                </section>
+
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-inner">
+                    <span class="footer-text">Advanced carbon-aware scheduling features</span>
+                    <div class="footer-links">
+                        <a href="index.html" class="footer-link">Back to Dashboard</a>
+                        <a href="map.html" class="footer-link">Interactive Map</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // API Configuration
+        window.API_BASE_URL = 'https://your-api-id.execute-api.eu-west-2.amazonaws.com/Prod';
+        
+        // API Config object for widgets
+        window.API_CONFIG = {
+            BASE_URL: 'https://your-api-id.execute-api.eu-west-2.amazonaws.com/Prod',
+            ENDPOINTS: {
+                CURRENT: '/current',
+                REGIONS: '/regions',
+                CALCULATE: '/calculate',
+                HISTORY: '/history',
+                FORECAST: '/v2/forecast',
+                EXCESS_POWER: '/v2/excess-power',
+                RANK_REGIONS: '/v2/rank-regions',
+                OPTIMIZE_SCHEDULE: '/v2/optimize-schedule'
+            }
+        };
+        
+        // Update timestamp
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('last-updated-time').textContent = 
+                now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        // Refresh data
+        function refreshData() {
+            location.reload();
+        }
+        
+        // Initialize
+        updateTimestamp();
+        setInterval(updateTimestamp, 60000);
+        
+        // Section navigation
+        document.querySelectorAll('.nav-link[data-section]').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = link.dataset.section;
+                
+                // Update active state
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                
+                // Scroll to section
+                document.getElementById(section)?.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+    </script>
+    
+    <!-- Widget Scripts -->
+    <script src="forecast.js"></script>
+    <script src="excess-power.js"></script>
+    <script src="maizx-ranking.js"></script>
+    <script src="slack-scheduling.js"></script>
+</body>
+</html>

@@ -1,0 +1,940 @@
+A Survey on Task Scheduling in Carbon-Aware Container Orchestration
+Jialin Yang
+jialin.yang@ucalgary.ca
+0009-0000-4875-1047
+Department of Electrical and Software Engineering, University of Calgary2500 University Drive NWCalgaryAlbertaCanadaT2N 1N4
+Zainab Saad
+zainab.saad1@ucalgary.ca
+Department of Electrical and Software Engineering, University of Calgary2500 University Drive NWCalgaryAlbertaCanadaT2N 1N4
+Jiajun Wu
+jiajun.wu1@ucalgary.ca
+0000-0003-1000-7356
+Department of Electrical and Software Engineering, University of Calgary2500 University Drive NWCalgaryAlbertaCanadaT2N 1N4
+Xiaoguang Niu
+xgniu@whu.edu.cn
+0000-0003-4252-3291
+School of Computer Science, Wuhan UniversityLuojiashan Road, Wuchang DistrictWuhanHubeiChina430079
+Henry Leung
+Department of Electrical and Software Engineering, University of Calgary2500 University Drive NWCalgaryAlbertaCanada
+leungh@ucalgary.ca
+0000-0002-5984-107X
+Steve Drew
+steve.drew@ucalgary.ca
+0000-0003-4527-2635
+Department of Electrical and Software Engineering, University of Calgary2500 University Drive NWCalgaryAlbertaCanadaT2N 1N4
+(2025)
+Abstract.
+The soaring energy demands of large-scale software ecosystems and cloud data centers, accelerated by the intensive training and deployment of large language models, have driven energy consumption and carbon footprint to unprecedented levels. In response, both industry and academia are increasing efforts to reduce the carbon emissions associated with cloud computing through more efficient task scheduling and infrastructure orchestration. In this work, we present a systematic review of various Kubernetes scheduling strategies, categorizing them into hardware-centric and software-centric, annotating each with its sustainability objectives, and grouping them according to the algorithms they use. We propose a comprehensive taxonomy for cloud task scheduling studies, with a particular focus on the environmental sustainability aspect. We analyze emerging research trends and open challenges, and our findings provide critical insight into the design of sustainable scheduling solutions for next-generation cloud computing systems.
+
+Container Orchestration, Kubernetes, Virtualization, Task Scheduling, Carbon Emissions
+†copyright: acmlicensed
+†journalyear: 2025
+†ccs: General and reference Surveys and overviews
+†ccs: General and reference Reference works
+1.Introduction
+With the globalization of digital services, cloud environments are now widely adopted across various industries (hardwareLowConsumption,). The three major cloud service providers, Amazon Web Services (AWS), Microsoft Azure, and Google Cloud Platform (GCP), deliver infrastructure and services on a global scale (sabastian2021international,). Driven in part by the rapid deployment of large language models (LLMs), the number and size of data centers have grown significantly, increasing electricity demand and associated carbon emissions (DataCenterHighConsumption,).
+
+In response to the environmental concerns, major cloud providers have begun to monitor, reduce, and publicly report their carbon footprints, aligning with broader sustainability goals  (patel2025sustainable,). For instance, AWS provides a comprehensive Customer Carbon Footprint Tool via its Sustainability Center1. Microsoft offers the Emissions Impact Dashboard for Azure to estimate greenhouse gas emissions associated with cloud operations2. Similarly, GCP supplies a Carbon Footprint dashboard to reveal project-level emissions to customers3.
+
+As containerized workloads become the dominant cloud-native paradigm, the efficiency of container orchestration directly impacts data center energy use and carbon emissions (piontek2024carbon,). As the leading container orchestration platform, Kubernetes offers a rich scheduling framework that can be extended to incorporate environmental metrics (rao2024energy,). Consequently, carbon-aware Kubernetes scheduling has emerged as a practical solution to improve the sustainability of cloud operations (dong2025towards,).
+
+To understand its significance, it is necessary to start with virtualization and explore the technological foundations that support modern cloud infrastructure. Virtualization provides an abstraction layer between hardware and software by creating virtual instances of physical components such as CPUs, memory, networks, and storage (singh2018virtualization,). While virtualization improves efficiency, hypervisor-based virtual machines introduce additional overhead by running separate guest operating systems. Containerization offers a lightweight alternative by packaging application binaries and dependencies together while sharing the host OS kernel, enabling better resource utilization and faster deployment (bhardwaj2021virtualization,). Kubernetes provides built-in mechanisms to ensure high availability, scalability, and efficient workload scheduling, making it highly effective for managing large-scale, microservice-based applications (KubernetesContainers,).
+
+To address these challenges, it is essential to further investigate existing cloud container scheduling algorithms within orchestration systems. Kubernetes scheduler, in particular, has shown strong potential in reducing carbon emissions by enabling efficient workload placement (carrion2022kubernetes,).
+
+To achieve seamless operation and management of containerized applications, a container orchestration engine is essential. It is responsible for scheduling and automatically scaling containers based on dynamic workload requirements. Designing an effective orchestration system requires the integration of multiple scheduling strategies, each optimized for specific objectives, such as minimizing response time, optimizing energy consumption, and maximizing resource utilization (Buyya_2018,). These strategies ensure the optimal allocation of physical resources among containers while simplifying the management and operation of large-scale containerized environments (rajuroy2025optimizing,; raith2024opportunistic,).
+
+Table 1.Surveys and Reviews of Kubernetes or Container Scheduling. For each aspect, Both in Optimization indicates the survey includes both hardware and software level optimization methods, Sustainability considers environmental sustainability, Algorithmic labels means if survey categorizes approaches based on algorithmic strategies, or Taxonomy Depth indicates survey presents a well-structured, reusable classification framework.
+Survey
+ 	
+Year
+Focus
+Optimization
+Sustainability
+Algorithmic Labels
+Taxonomy Depth
+Burns et al. (burns2016borg,)
+ 	
+2016
+Lessons from a decade of Google’s container-management systems (Borg, Omega, Kubernetes), focusing on software design and scheduling evolution.
+Software
+No
+No
+No
+Pahl et al. (pahlSurvey,)
+ 	
+2017
+Systematic mapping of cloud container orchestration research, highlighting architecture, management, and technology concerns.
+Software
+No
+Yes
+Yes
+Maria et al.  (mariaSurvey,)
+ 	
+2018
+Taxonomy of software-based container orchestration mechanisms for scalability, fault tolerance, and resource efficiency.
+Software
+No
+Yes
+Yes
+Hong et al. (hongSurvey,)
+ 	
+2019
+Survey of resource management techniques in fog/edge systems including task placement, scheduling, and migration
+Software
+No
+No
+No
+Casalicchio (Casalicchio2019Survey,)
+ 	
+2019
+Overview of Kubernetes, Docker Swarm, and container orchestration features
+Software
+No
+No
+No
+Ahmad et al. (ahmad2022containerSurvey,)
+ 	
+2022
+Classification of container scheduling algorithms including mathematics and heuristics etc.
+Software
+No
+Yes
+Yes
+Carrión (carrion2022kubernetes,)
+ 	
+2022
+Taxonomy of Kubernetes scheduling and challenges in performance and energy.
+Software
+Yes
+No
+Yes
+Rejiba et al. (zeineb2022Survey,)
+ 	
+2022
+Survey of custom Kubernetes schedulers for diverse workloads, with taxonomy based on scheduling objectives, workloads, and environments.
+Software
+No
+Yes
+Yes
+Senjab et al. (Jawaddi2023Survey,)
+ 	
+2023
+Survey of Kubernetes scheduling algorithms categorized into generic, multi-objective, AI-based, and auto scaling approaches.
+Software
+No
+Yes
+No
+Ours
+ 	
+2025
+Survey of sustainability-focused Kubernetes scheduling
+Both
+Yes
+Yes
+Yes
+We present an overview of existing surveys in Kubernetes and container scheduling literature in Table 1, categorizing them by optimization methods (software/hardware), consideration of sustainability goals, algorithmic labeling approaches, and taxonomy reusable classification framework.
+
+Earlier surveys predominantly focus on software-based optimization methods, primarily due to their emphasis on performance metrics while largely ignoring hardware-level energy costs or industry insights. Moreover, few existing works have explicitly prioritized sustainability aspects such as environmental impacts, energy efficiency, or carbon-aware scheduling strategies.
+
+Burns et al.  (burns2016borg,) provided foundational lessons from Google’s container management systems, focusing mainly on software design without explicitly addressing sustainability. Pahl et al.  (pahlSurvey,) systematically mapped cloud container orchestration but did not consider environmental factors. Maria et al.  (mariaSurvey,) and Ahmad et al.  (ahmad2022containerSurvey,) proposed taxonomies focusing on scalability, resource efficiency, and scheduling algorithms but without addressing sustainability or integrating hardware considerations.
+
+Recent surveys like Carrión (carrion2022kubernetes,) and Senjab et al. (Jawaddi2023Survey,) started incorporating sustainability considerations. However, these are still primarily software-focused and lack significant industrial integration.
+
+Compared with previous surveys, our survey significantly makes the following key contributions:
+
+• We systematically review cloud task scheduling strategies by incorporating both hardware- and software-level optimization methods, explicitly addressing environmental sustainability and integrating insights from both academic research and industry practices.
+• We propose the first systematic classification of Kubernetes scheduling algorithms based on two dimensions: underlying optimization methods (hardware-driven or software-driven) and sustainability goals (energy efficiency or carbon emissions awareness).
+• We introduce a dual-layer taxonomy that links technical scheduling strategies to their environmental impacts, bridging critical gaps in existing literature and offering comprehensive guidance for sustainability-focused scheduling in cloud environments.
+2.Survey Methodology
+To thoroughly investigate how academia and industry can utilize Kubernetes scheduling to reduce carbon intensity, we explored systematic evaluation methods such as MOOSE (Meta-Analysis of Observational Studies in Epidemiology) (Moose,), Cochrane Handbook for Systematic Reviews of Interventions (cochrane,), ROBIS (Risk Of Bias In Systematic Reviews) (robis,), and GRADE (Grading of Recommendations Assessment, Development, and Evaluation) (GRADE,). We selected PRISMA (Preferred Reporting Items for Systematic Reviews and Meta-Analyses) (prisma,) because it is widely recognized and comprehensive. MOOSE is less recognized, the Cochrane Handbook is more suited for medical research, ROBIS lacks a complete framework, and GRADE’s assessments can be subjective. PRISMA provides a robust framework for our systematic review needs.
+
+Refer to caption\Description
+The PRISMA Flow Diagram to Collect papers
+
+Figure 1.The PRISMA Flow Diagram to Collect papers
+2.1.Search Objectives
+In our review paper, we aim to explore the development of cloud computing and its implications, along with potential solutions to emerging challenges. Our research objectives are as follows:
+
+- Outline the evolution of networks from virtualization to containerization and eventually to cloud computing.
+- Optimize orchestration engines, such as Kubernetes, to reduce carbon emissions.
+- Investigate the application of federated learning in scheduling optimization to further reduce carbon emissions.
+2.2.Search Strategy
+We conducted a comprehensive literature search using academic databases such as the ACM Digital Library, the Institute of Electrical and Electronics Engineers (IEEE) Xplore, and SpringerLink. Additionally, we utilized Google Scholar and Connected Papers as external tools to identify relevant works through citation mapping. Our primary search terms included “virtualization,” “Kubernetes scheduling,” “carbon intensity,” and “federated learning.” Connected Papers was particularly useful in identifying relevant research clusters based on citation distance.
+
+To complement academic sources, we also incorporated gray literature and reports from major industry stakeholders, including Google, Microsoft, and the Green Software Foundation (GSF). This combination of academic and industry sources ensures that our review covers both foundational research and the latest practical innovations related to sustainable cloud orchestration.
+
+2.3.Eligibility Criteria
+To maintain the quality and relevance of this review, we applied the following inclusion and exclusion criteria during the screening process illustrated in Figure 1.
+
+2.3.1.Inclusion Criteria
+• The study is published in a high-impact, peer-reviewed journal or top-tier conference proceedings.
+• The content aligns with core topics such as virtualization, Kubernetes scheduling, carbon efficiency, and federated learning.
+• The methodology presented is rigorous and well-documented.
+2.3.2.Exclusion Criteria
+• The study’s focus falls outside the scope of sustainable Kubernetes scheduling or cloud optimization.
+• The source credibility is questionable or unverifiable.
+• The publication is outdated, unless it represents a seminal or highly cited foundational work.
+This systematic filtering approach ensures that only the most relevant and high-quality studies are included in our analysis.
+
+3.Preliminary
+The rapid adoption of Kubernetes for container orchestration has increased the urgency of addressing environmental sustainability issues, particularly the energy consumption and resource allocation challenges of emerging data centers. In addition, concerns about data privacy preservation between distributed devices have highlighted the importance of federated learning as a potential solution.
+
+3.1.Energy Consumption Challenge
+Efficient scheduling in Kubernetes is directly related to broader energy consumption challenges. Data centers, central to cloud and containerized workloads, significantly contribute to global energy use and emissions. From 2010–2018, global data center electricity grew by 6%, reaching  1% of global consumption, with server utilization and storage efficiency also increasing (KubernetesContainers,; DCEnergyUse,). However, data centers now exhibit higher energy intensity per GDP unit than other industries.
+
+In the U.S., server shipments grew from 3M (2016) to over 6.5M (2022), driven by GPU-heavy AI workloads, pushing electricity consumption from 60 TWh to 176 TWh at 2023 which is 4.4% of national demand, according to the projections, it may up to 580 TWh (12%) by 2028 (USDataCenterCount,) .Ireland expects data center energy use to hit 32% of its national electricity by 2026 (IEAreport,). Globally, data center use may exceed 1,000 TWh by 2026, comparable to Japan’s total use. Efficient, carbon-aware scheduling is crucial for mitigating this growth (resourceallocationreview,).
+
+3.2.Resource Allocation
+In order to relieve energy consumption challenges, it is crucial to optimize resource allocation. Traditional cost-based scheduling aims to minimize task time and operational cost (banga2020cost,). Modern schedulers use heuristic and meta-heuristic algorithms (mor2021heuristic,; jain2017cloud,) to address multi-resource allocation challenges in virtualized environments (rodriguez2019container,).
+
+Power Management: Techniques like sleep states, DVFS, and geo-distributed load balancing help reduce energy use. For example, Zheng and Cai propose a model optimizing power cost across regions with variable electricity prices (ZHENG2011275,).
+
+Resource Management: Adaptive workload scheduling strategies like CPU scaling, consolidation, and asynchronous offloading reduce active nodes and enhance efficiency (quan2012t,).
+
+Thermal Management: Efficient thermal strategies reduce cooling overhead. Metrics by Lajevardi enable thermal-aware scheduling (LAJEVARDI2015511,), while Beitelmal shows that higher CPU thermal thresholds can enhance energy efficiency (BEITELMAL2014562,).
+
+These dimensions jointly optimize computation, cost, and energy in sustainable data center operation.
+
+3.3.Federated Learning
+Given that resource allocation often involves distributed and private data, federated learning has emerged as a promising method that balances privacy and efficiency. Federated learning (FL) enables decentralized model training, preserving privacy and reducing communication overhead. It is especially useful in energy domains where renewable sources like wind and solar vary across time and space. Accurate prediction models require diverse data, yet the industry hesitates to share it (flgreenreview,).
+
+Kusiak highlights that high-resolution turbine data is often inaccessible due to manufacturer restrictions (kusiak2016renewables,). FL overcomes this barrier by enabling collaborative learning without centralizing data. Studies show FL achieves comparable accuracy to centralized models across various green energy applications (li2023wind,; ahmadi2022deep,; wang2022privacy,; wang2023efficient,; moayyed2022cyber,).
+
+3.4.Carbon Awareness
+To effectively utilize federated learning for sustainable computing, it is crucial to raise carbon awareness among stakeholders. Carbon awareness emphasizes understanding and mitigating CO2 emissions. Raising awareness supports behavioral change and adoption of sustainable technologies (Gevrek2015Public,).
+
+Carbon taxes impose costs on emitters to incentivize greener practices (Timilsina2022Carbon,; Baranzini2000A,). Revenue may fund renewable energy or offset public costs. Data centers, which could account for 8% of global emissions by 2030 (Cao2021Toward,), are prime targets. Carbon taxation can drive adoption of clean energy and energy-efficient infrastructure (Bosse2020Quantitative,).
+
+3.5.Kubernetes Default Scheduler
+Addressing the above carbon emission awareness issues requires a reconsideration of Kubernetes, the mainstream container orchestration framework, especially its scheduling strategy. The Kube-scheduler is the default scheduler component of Kubernetes. It is responsible for assigning unscheduled Pods to appropriate Nodes based on a combination of policies, constraints, and resource availability. Its scheduling algorithm follows a two-phase design: filtering and scoring (sigelman2019kubernetes,; k8s-scheduler-concepts,).
+
+Filtering Phase
+In the filtering phase, the scheduler eliminates Nodes that do not satisfy basic scheduling requirements (k8s-scheduling-framework,; k8s-scheduler-concepts,). Some default filters (also called predicates) include:
+
+• PodFitsResources: Verifies if the Node has sufficient CPU and memory.
+• NodeAffinity: Checks if the Pod’s node affinity rules match the Node.
+• TaintsAndTolerations: Ensures that the Pod can tolerate the Node’s taints.
+• VolumeBinding: Ensures that required volumes can be mounted on the Node.
+Only Nodes that pass all filtering criteria are considered for the next phase (verma2015large,).
+
+Scoring Phase
+In the scoring phase, each filtered Node is assigned a score, and the Node with the highest score is selected (k8s-scheduler-concepts,). Some common built-in scoring functions (also called priorities) include:
+
+• Least-allocated: Prefers Nodes with the most available resources, promoting balanced resource usage.
+• Most-allocated: Opposite of Least-allocated; can help with resource bin-packing.
+• BalancedResourceAllocation: Scores Nodes based on balanced CPU and memory allocation.
+• TopologySpreadConstraint: Spreads Pods evenly across failure domains (e.g., zones or racks).
+These scores are often weighted and normalized before a final decision is made. If multiple Nodes share the highest score, one random node is selected.
+
+Disadvantages and Limitations
+While the kube-scheduler provides a general-purpose, efficient scheduling mechanism, it has several limitations:
+
+• Resource-Centric Only: Default scoring plugins focus primarily on CPU and memory. Other concerns like energy consumption, carbon intensity, or workload priorities are not considered unless customized (Resource-Centric,).
+• No Learning or Adaptation: The default scheduler does not learn from previous scheduling outcomes or adapt to dynamic patterns in workloads (NoLearning,).
+• Limited Global View: The scheduler makes decisions Pod-by-Pod and does not globally optimize across jobs or queues (limitedGoalView,).
+• Reactive, Not Predictive: The scheduler reacts to Pod creation events, rather than predicting future load or preemptively optimizing node utilization (reactive,).
+• Random Tie-Breaking: When multiple Nodes share the highest score, one is chosen randomly, which may lead to suboptimal or inconsistent scheduling behavior (randomTieBreaking,).
+• Inadequate for Specialized Policies: Workloads requiring custom objectives (e.g., energy efficiency, data locality, SLA guarantees) must implement plugins or alternative schedulers (Inadequate,).
+These limitations have led to a wide array of research and engineering efforts aimed at developing smarter, more context-aware schedulers, many of which integrate with or replace kube-scheduler through scheduling frameworks.
+
+4.Industry Efforts Toward Carbon-Aware Computing
+As the carbon footprint of data centers and containerized applications continues to grow, stakeholders across the industry have actively taken steps to address these sustainability challenges. Driven by the rapid growth in cloud computing and Kubernetes adoption, organizations in academia and industry are increasing their research and development efforts into carbon-aware computing solutions and sustainable scheduling practices.
+
+The AI Alliance brings together top universities such as Imperial College London, Keio University, and Yale with major technology companies including ORACLE, IBM, and META to explore AI’s potential in reducing carbon emissions (AIAlliance,).
+
+In 2021, the Cloud Native Computing Foundation launched Crane, an open-source Cloud Native FinOps project that enables Kubernetes users to monitor carbon footprints, analyze resource usage, and optimize workloads to reduce emissions.
+
+The Green Software Foundation, a non-profit organization, developed the Carbon Aware SDK to measure software carbon impact and adjust runtime behavior to improve environmental sustainability (cncfCrane,).
+
+HashiCorp’s Nomad, a multi-region orchestration engine, supports carbon-aware scheduling using location-based algorithms. It applies binpack scheduling to shift workloads to greener regions and adjusts task anti-affinity based on local carbon intensity to prevent node overload. This approach can be further improved by integrating task-specific characteristics (hashicorpNomad,).
+
+According to the BP Energy Outlook 2030 (BP2018Outlook,), renewable energy sources are projected to account for the largest share of global energy demand growth over the next two decades. This trend is progressing more rapidly than previous transitions such as nuclear and natural gas, signaling a shift in the energy landscape for traditional oil companies.
+
+However, this transition remains fragmented. European firms such as Shell, Total, and Equinor have made substantial investments in renewable technologies like wind, solar, and electric vehicle infrastructure (sheppard2018oil,; mackenzie2018shell,). In contrast, U.S.-based companies such as Exxon, Mobil and Chevron have focused primarily on improving fossil fuel efficiency with limited diversification into renewable (ward2018oil,; Mobil,). Geothermal energy remains significantly under invested across all major players.
+
+These industry-led efforts highlight the urgency of addressing energy consumption and carbon emissions, especially given the critical role of Kubernetes scheduling in cloud-native infrastructure. However, achieving truly sustainable scheduling practices requires addressing deeper, fundamental challenges, including energy efficiency, effective resource allocation, protecting data privacy through federated learning, and enhancing carbon awareness across technical platforms (USPolar,). Despite growing awareness and momentum, the lack of coordinated action and the diversity of energy strategies across regions and organizations continue to hinder a unified and effective transition to carbon-aware computing (BritishPolar,).
+
+5.Scheduling Algorithm
+Research on container scheduling in cloud-native environments generally falls into two categories: hardware-level optimization, which leverages telemetry and external signals (e.g., energy sources, hardware status, data center traits), and software-level algorithmic approaches, which refine resource allocation and scheduling logic. These methods target either energy efficiency or carbon awareness as their primary sustainability goal.
+
+To reflect the breadth of current techniques, we further classify scheduling strategies into the following groups: Energy Consumption Priority Schedulers, Data Center Cost Management, Multi-Criteria Optimization, Temporal and Spatial Carbon Shifting, Carbon-Aware Workload Shifting, ML/DL-Based Scheduling, Heuristic and Metaheuristic Methods, Energy Consumption Metrics Monitoring, Fair Resource Allocation, AI-Driven and DRL Schedulers, Serverless, Edge, and Federated Solutions, and Carbon Emission Index Priority Scheduling. Papers originating from the industry sector are marked with “†” to highlight practical contributions.
+
+Energy Efficiency aims to reduce total power consumption by improving infrastructure utilization and minimizing idle resource usage without compromising system performance or quality of service. This goal is often pursued through fine-grained scheduling, load consolidation, or dynamic scaling techniques that minimize energy waste.
+
+Carbon Awareness, on the other hand, prioritizes reducing greenhouse gas emissions by accounting for the carbon intensity of electricity used. It often involves time-shifting or geo-shifting workloads to align with periods or locations where cleaner (e.g., renewable) energy is available. While this may introduce trade-offs in terms of latency, cost, or resource utilization, it enables a lower-carbon operational footprint aligned with sustainability goals.
+
+Refer to caption
+Figure 2.Taxonomy of Kubernetes Scheduling Strategies Categorized by Optimization Types and Sustainability Objectives. Note: † Industry paper
+\Description
+A hierarchical taxonomy diagram of Kubernetes scheduling strategies.
+
+Figure 2 presents an initial visual taxonomy of existing Kubernetes scheduling approaches, organized by whether they target hardware or software optimization, and further divided based on their sustainability goal of energy efficiency or carbon awareness. More detailed descriptions of these approaches are provided in the subsequent summary tables.
+
+5.1.Scheduling Overview
+Hardware Optimization This category focuses on scheduling strategies that exploit telemetry and hardware-level signals to achieve sustainability goals. The proposals can be broadly categorized into energy efficiency and carbon awareness strategies.
+
+For energy efficiency, notable proposals include a holistic scheduling algorithm that replaces Kubernetes’ default scheduler by incorporating both physical and virtual infrastructure states and business logic  (townend2019improving,); a virtual data center management framework designed to reduce emissions and improve cloud infrastructure profitability  (xu2014virtual,); and methods for Virtual Machine placement and migration that reduce unnecessary energy consumption  (zhang2023carbon,; rocha2019heats,). Frameworks such as Kepler provide real-time power usage estimates at the container level, further enhancing energy visibility and decision-making accuracy  (kepler,).
+
+On the carbon awareness front, several strategies emphasize adjusting workloads based on carbon intensity data. Examples include temperature-aware task scheduling for chip-level SoCs(System on Chip)  (coskun2008static,), the Kubernetes Container Scheduling Strategy (KCSS) which employs multi-criteria decision-making to reduce emissions  (menouer2021kcss,), and Google’s Carbon-Intelligent Compute system that reschedules jobs based on predicted carbon intensity  (radovanovic2022carbon,). Carbon Scaler dynamically adjusts server allocations using real-time carbon data and Kubernetes auto-scaling to achieve up to 51% emission reduction  (hanafy2023carbonscaler,).
+
+Table 2.Hardware Optimization Techniques for Energy-Efficient Scheduling
+Category: Energy Efficiency
+
+Title
+ 	
+Key Proposal
+Energy Consumption Priority Scheduler
+Improving Data Center Efficiency via Holistic Scheduling  (townend2019improving,)
+ 	
+A holistic scheduling algorithm is used to replace Kubernetes’ default scheduler. This new algorithm considers the impact of virtual and physical infrastructure and business processes.
+HEATS: Heterogeneity-and Energy-Aware Task-Based Scheduling  (rocha2019heats,)
+ 	
+Study the hardware architectures associated with schedulers and migrate them to different cluster nodes to meet the deployment carbon and performance tradeoffs.
+PEAKS: Power-Efficiency-Aware Kubernetes Scheduler† (souza2024peaks,)
+ 	
+PEAKS is a Kubernetes scheduler plugin that reduces power consumption by prioritizing pod placement on nodes with higher energy efficiency, as measured by real-time metrics from Kepler (kepler,).
+Real-Time Node’s Power-Aware Kubernetes Scheduler(NPAKS) in a Cloud Environment  (kumari2025npaks,)
+ 	
+NPAKS is an energy-aware Kubernetes scheduler that uses real-time node-level energy consumption data to reduce cluster energy consumption while maintaining performance.
+Fine-Grained Heterogeneous Execution Framework with Energy Aware Scheduling  (rattihalli2023fine,)
+ 	
+The authors propose a Kubernetes-based energy-aware scheduler that achieves significant reductions in energy consumption and execution time by optimizing task co-location and resource utilization on heterogeneous hardware.
+Data Center Cost Management Strategies
+A Virtual Data Center Deployment Model Based on the Green Cloud Computing  (xu2014virtual,)
+ 	
+This paper proposes a virtual data center management framework with a purpose of reducing carbon emissions to increase the profits of cloud computing infrastructure suppliers and optimize infrastructure providers’ external environment.
+Carbon-Efficient Virtual Machine Placement in Cloud Data centers over Optical Networks  (zhang2023carbon,)
+ 	
+Examine the relationship between data center configurations( such as latency, bandwidth, and capacity) and emissions to minimize carbon emissions without compromising service quality.
+ 
+† Industry paper
+
+Table 3.Hardware Optimization Techniques for Carbon-Aware Scheduling
+Category: Carbon Awareness
+
+Title
+ 	
+Key Proposal
+Multi‑Criteria Optimization Methods
+Static and Dynamic Temperature-Aware Scheduling for Multiprocessor SoCs  (coskun2008static,)
+ 	
+The task scheduling problem is solved using Integer Linear Programming(ILP) under the premise of minimizing energy, balancing energy by and reducing hot spots, and designing dynamic scheduling strategies at the software level, which drastically reduces high-intensity thermal cycling.
+KCSS: Kubernetes Container Scheduling Strategy  (menouer2021kcss,)
+ 	
+KCSS uses the TOPSIS algorithm to find the optimal algorithm to reduce carbon emissions when introducing CPU, memory, disk utilization rate, power consumption, number of containers, and image transmit time.
+Carbon-Aware Online Control of Geo-Distributed Cloud Services  (zhou2015carbon,)
+ 	
+This study presents a framework that exploits spatial and temporal variability in electricity carbon footprints to reduce emissions in geo-distributed cloud services. The approach uses Lyapunov optimization for online decision-making regarding load balancing, capacity right-sizing, and server speed scaling to minimize electricity costs and emissions simultaneously.
+Temporal and Spatial Carbon Shifting Systems
+Carbon-Aware Computing for Data centers†  (radovanovic2022carbon,)
+ 	
+Google’s Carbon-Intelligent Compute Management system minimizes the carbon footprint by scheduling flexible workloads during periods of lower carbon intensity. This system uses day-ahead carbon intensity forecasts and adjusts the compute capacity accordingly.
+CarbonScaler: Leveraging Cloud Workload Elasticity for Optimizing Carbon-Efficiency  (hanafy2023carbonscaler,)
+ 	
+CarbonScaler dynamically adjusts server allocation based on real-time carbon intensity data, significantly reducing emissions for cloud workloads. The system uses Kubernetes’ autoscaling capabilities to manage batch jobs, achieving up to 51% carbon savings over noncarbon-aware approaches.
+Caspian – Carbon-Aware Multi-Cluster Scheduling for Cloud-Native Workloads†  (ibm2024caspian,)
+ 	
+Caspian, developed by IBM, a Kubernetes scheduler that reduces carbon emissions by dynamically shifting workloads across regions and times with lower grid carbon intensity.
+S.C.A.L.E.: Scheduler for Carbon-Aware Load Execution at ING†  (denToonder2024scale,)
+ 	
+S.C.A.L.E. is a carbon-aware batch scheduler that reschedules jobs in Kubernetes to greener time windows based on carbon intensity forecasts, reducing emissions while meeting workload deadlines.
+Carbon‑Aware Workload Shifting
+Microsoft Carbon-Aware Computing White paper†  (Microsoft2023,)
+ 	
+Shift loads according to time and place to avoid heavy use of dirty energy sources such as fossil fuels.
+Intel Telemetry Aware Scheduling† (intel2024tas,)
+ 	
+Telemetry Aware Scheduling (TAS) by Intel enables Kubernetes to make smarter pod placement decisions by integrating fine-grained hardware telemetry.
+ 
+† Industry paper
+
+Software Optimization
+
+This category targets algorithmic-level enhancements to container orchestration systems to meet energy and carbon objectives. These approaches are likewise divided into energy efficiency and carbon awareness.
+
+For energy efficiency, methods such as KEIDS apply integer linear programming to optimize task scheduling in edge-cloud IoT environments while minimizing power usage  (kaur2019keids,). RLKube uses reinforcement learning to train a Double DQN with Prioritized Experience Replay to learn optimized Kubernetes scheduling policies  (rothman2023rl,). Other approaches incorporate AI-based decision models for container placement to reduce power consumption  (jorge2021artificial,).
+
+Carbon awareness strategies include dynamic workload shifting based on regional carbon intensity (e.g., GreenCourier for serverless platforms  (chadha2023greencourier,)), algorithms that detect idle or under-utilized VMs and downsize them to reduce emissions  (huang2023reducing,), and fairness-based resource allocation to prevent carbon-heavy overload on specific nodes  (ghodsi2011dominant,). Deep learning-based schedulers like Smart-Kube and DL2 further demonstrate how intelligent resource control can strike a balance between performance and sustainability  (ghafouri2023smart,; peng2021dl2,). Federated learning schedulers such as CAFE and CEFL promote privacy-preserving and carbon-efficient training in distributed environments by keeping data local and optimizing compute timing  (cafe,; cefl,).
+
+Table 4.Summary of Energy-Efficient Scheduling Techniques in Kubernetes and Cloud Environments
+Category: Energy Efficiency
+
+Title
+ 	
+Key Proposal
+Machine Learning and Deep Learning Based Scheduling Approaches
+An RL-Based Model for Optimized Kubernetes Scheduling  (rothman2023rl,)
+ 	
+RLKube, a custom Kubernetes scheduler using Reinforcement Learning, improves task scheduling efficiency, enhancing energy efficiency and resource utilization by utilizing Double Deep Q-Network with Prioritized Experience Replay.
+Optimizing Energy Consumption of Kubernetes Clusters with Deep Reinforcement Learning  (espinosa2024optimizing,)
+ 	
+This paper introduces a Proximal Policy Optimization(PPO) based Deep Reinforcement Learning(DRL) scheduler integrated into Kubernetes that reduces energy consumption by up to 24% through intelligent pod placement in edge-cloud environments.
+EETS: An energy-efficient task scheduler in cloud computing based on improved DQN algorithm  (hou2024eets,)
+ 	
+EETS is a deep reinforcement learning based task scheduling algorithm that combines Double Dueling DQN and prioritized experience replay to minimize energy consumption and task response time in cloud environments.
+An energy efficient RL based workflow scheduling in cloud computing  (reddy2023energy,)
+ 	
+This paper proposes a secure, energy-efficient, RL-based workflow scheduling framework for cloud computing that outperforms existing approaches in terms of reduced energy consumption, security, cost and time horizon.
+HunterPlus: AI based energy-efficient task scheduling for cloud–fog computing environments  (iftikhar2023hunterplus,)
+ 	
+HunterPlus is a deep learning based task scheduling algorithm for cloud and fog environments that optimizes workload placement to reduce energy consumption by 17% and improves the job completion rates by 10.4%.
+Energy-Efficient Cloud Computing Through Reinforcement Learning-Based Workload Scheduling  (malipatil2025energy,)
+ 	
+The paper uses Deep Q-Networks (DQN) to learn an energy-efficient workload scheduling policy, using feature engineered inputs such as execution time, CPU and memory consumption and makes informed scheduling decisions that optimize both energy efficiency and performance.
+Opportunistic Energy-Aware Scheduling for Container Orchestration Platforms Using Graph Neural Networks  (raith2024opportunistic,)
+ 	
+This paper proposes a Graph Neural Network (GNN) model to predict power consumption with a root mean square error of 7.5%, along with a set of opportunistic scheduling algorithms to schedule applications based on the GNN estimated energy impact of incoming containers. The scheduler achieves a 6.2% reduction in energy consumption.
+Energy-efficient DAG scheduling with DVFS for cloud data centers  (yang2024energy,)
+ 	
+This paper presents E2DSched, an online reinforcement learning based energy-efficient task scheduling algorithm for randomly arriving directed acyclic (DAG) graph jobs in cloud data centers.
+Heuristics, Metaheuristics, and Analytical Approaches
+KEIDS: Kubernetes-Based Energy and Interference Driven Scheduler for Industrial IoT in Edge-Cloud Ecosystem  (kaur2019keids,)
+ 	
+The KEIDS scheduler minimizes energy consumption and carbon emissions in edge-cloud nodes for IoT setups by optimizing task scheduling using integer linear programming for multiobjective optimization.
+Energy-aware Scheduling Algorithm for Microservices in Kubernetes Clouds  (rao2024sla,)
+ 	
+This paper proposes an energy-efficient Kubernetes scheduling algorithm based on service level agreements (SLAs) that reduces cluster energy consumption by optimizing pod placement using communication-aware prioritization and an improved Sparrow Search meta-heuristic algorithm.
+Analyzing Energy‑Efficient and Kubernetes‑Based Autoscaling of Microservices Using Probabilistic Model Checking  (Jawaddi2025,)
+ 	
+The paper introduces a formal model-checking framework using Markov Decision Process(MDP) to evaluate and optimize energy efficiency in Kubernetes auto scaling policies for microservice workloads.
+GreenPod: Energy-Optimized Scheduling for AIoT Workloads Using TOPSIS  (pradeep2025energy,)
+ 	
+Greenpod is a multi-criteria Kubernetes scheduler that uses TOPSIS to optimize energy efficiency in (Artificial Intelligence of Things)AIoT workloads, achieving up to 39.1% energy savings over the default scheduler.
+3GC: A deadline-aware and energy-efficient resource allocation scheme for serverless edge computing  (bellal20253gc,)
+ 	
+3GC is a deadline-aware resource allocation strategy for serverless edge computing that minimizes energy and execution costs using real-time allocation and Dynamic Voltage and Frequency Scaling(DVFS)-based tuning while ensuring latency constraints.
+FOA-Energy: A Multi-objective Energy-Aware Scheduling Policy for Serverless-based Edge-Cloud Continuum  (da2025foa,)
+ 	
+This paper presents FOA-Energy, a two-level multi-objective scheduling policy for allocating batches of serverless functions in the edge-cloud continuum. The scheduling policy minimizes energy consumption, makespan, resource usage and data transfers as compared to standard greedy algorithms.
+Energy-efficient virtual machine scheduling in IaaS cloud environment using energy-aware green-particle swarm optimization  (ajmera2023energy,)
+ 	
+The paper introduces GPSO, an energy-aware VM scheduling algorithm that minimizes power consumption and SLA violations in heterogeneous cloud data centers by prioritizing the use of the least active servers.
+Energy Consumption Metrics Observation
+Kepler: A Framework to Calculate the Energy Consumption of Containerized Applications† (kepler,)
+ 	
+Kepler (Kubernetes-based Efficient Power Level Exporter) estimates real-time power consumption at the process, container, and pod levels by leveraging hardware counters and system power metrics. It uses a power model to predict workload energy consumption.
+Container-level Energy Observability in Kubernetes Clusters  (pijnacker2025container,)
+ 	
+This paper presents KubeWatt, an enhanced alternative to Kepler for energy measurement in Kubernetes clusters which is capable of accurately estimating power consumption at both node and container levels.
+ 
+† Industry paper
+
+Table 5.Summary of Carbon-Aware Scheduling Techniques in Kubernetes and Cloud Environments
+Category: Carbon Awareness
+
+Title
+ 	
+Key Proposal
+Fair Resource Allocation Strategies
+Reducing Cloud Expenditures and Carbon Emissions via Virtual Machine Migration and Downsizing  (huang2023reducing,)
+ 	
+Carbon intensity is reduced by algorithms that observe virtual machine resource waste to avoid idle or under-loaded virtual machines.
+A Low Carbon Kubernetes Scheduler  (James2019ALC,)
+ 	
+This scheduler calculates the cost of relocating a data center to assess if it should be re-dispatched to reduce carbon emissions.
+Dominant Resource Fairness: Fair Allocation of Multiple Resource Types  (ghodsi2011dominant,)
+ 	
+Multi-resource max-min fairness ensures that no node carries too many tasks, reducing excess emissions.
+Ant Colony Algorithm for Multi-Objective Optimization of Container-Based Micro-Service Scheduling  (8744199,)
+ 	
+Ant colony algorithm provides a load balancing scheduling algorithm for micro-services to reduce transmission overload and carbon emissions.
+AI‑Driven and Deep Reinforcement Learning Schedulers
+Smart-Kube: Energy-Aware and Fair Kubernetes Job Scheduler Using Deep Reinforcement Learning  (ghafouri2023smart,)
+ 	
+Smart-Kube utilizes deep reinforcement learning to balance resource allocation and minimize energy consumption, ensuring efficient node utilization while maintaining low energy use.
+DL2: A Deep Learning-Driven Scheduler for Deep Learning Clusters  (peng2021dl2,)
+ 	
+Deep learning clusters are trained to dynamically and rationally adjust the resources allocated to a task, which is significantly more efficient than a fair scheduling program.
+MAIZX: A Carbon-Aware Framework for Optimizing Cloud Computing Emissions  (MAIZX,)
+ 	
+MAIZX is a dynamic, agent-driven framework that minimizes carbon emissions from cloud computing by optimizing workload allocation based on real-time carbon and energy metrics.
+Greenflow: A carbon-efficient scheduler for deep learning workloads  (gu2024greenflow,)
+ 	
+GreenFlow is a carbon-efficient GPU cluster scheduler that dynamically adjusts job configurations and resource allocations based on performance models and grid carbon intensity, minimizing deep learning training time within carbon budget constraints.
+Serverless, Edge, and Federated Solutions
+GreenCourier: Carbon-Aware Scheduling for Serverless Functions  (chadha2023greencourier,)
+ 	
+GreenCourier schedules serverless functions based on regional carbon efficiencies, significantly reducing emissions per invocation by leveraging real-time carbon data from Watt-time and the Carbon aware SDK.
+CAFE: Carbon-Aware Federated Learning in Geographically Distributed Data Centers  (cafe,)
+ 	
+CAFE is scheduler uses federated learning to optimizes carbon emissions while ensuring data privacy by keeping data local. It uses the Lyapunov function to address prediction instability and environmental impacts.
+CEFL: Carbon-Efficient Federated Learning  (cefl,)
+ 	
+CEFL leverages machine learning training on edge devices shifts the focus from resource efficiency to resource cost, significantly reducing emissions without impacting training time.
+Implementation and Benchmarking of Kubernetes Horizontal Pod Auto-scaling Method to Event-Driven Messaging System  (KEDA,)
+ 	
+KEDA is an event-driven auto-scaling component for Kubernetes that optimizes resource utilization by dynamically scaling containers based on events.
+CASA: A Framework for SLO- and Carbon-Aware Auto scaling and Scheduling in Serverless Cloud Computing  (qi2024casa,)
+ 	
+CASA is a carbon and service level objectives(SLOs) aware scheduling framework for serverless platforms that reduces emissions and lowers the risk of SLO violations by intelligently balancing container warm-up and auto-scaling decisions.
+GreenWhisk: Emission-Aware Computing for Serverless Platform  (serenari2024greenwhisk,)
+ 	
+GreenWhisk is a serverless computing platform that reduces carbon emissions while maintaining performance by scheduling jobs based on real-time energy and carbon intensity data.
+Carbon Emission Index Priority Scheduling Frameworks
+Carbon Emission-Aware Job Scheduling for Kubernetes Deployments  (piontek2024carbon,)
+ 	
+Introduces a CO2-aware workload scheduling algorithm that shifts non-critical jobs in time using historical energy data to reduce emissions.
+CASPER: Carbon-Aware Scheduling and Provisioning for Distributed Web Services  (Souza_2023,)
+ 	
+This paper proposes a Kubernetes-deployable architecture named CASPER to reduce the carbon footprint of geographically distributed web services through spatial shifting while minimizing performance costs.
+PCAPS: Precedence- and Carbon-Aware DAG Scheduling  (lechowicz2025pcaps,)
+ 	
+PCAPS is a precedence and carbon aware scheduler for data processing jobs that reduces emissions by up to 32.9% while maintaining performance by avoiding bottlenecks in task dependencies.
+Operating Cloud Applications Under a Carbon Budget  (kreutz2025budget,)
+ 	
+This work introduces a carbon-aware microservice deployment approach that dynamically selects configurations to maximize user experience and revenue while adhering to hourly carbon budgets.
+U-DUCT: Uncertainty-aware Dynamic Unified Carbon Modeling Tool for Datacenter Scheduling  (guan2024u,)
+ 	
+U-DUCT is a comprehensive runtime-aware carbon modeling tool that captures hardware and software uncertainties in computing, storage, and networking to improve carbon emissions assessment and mitigation measures in data centers.
+A Green Cloud-Based Framework for Energy-Efficient Task Scheduling Using Carbon Intensity Data for Heterogeneous Cloud Servers  (beena2025green,)
+ 	
+This paper proposes a scalable scheduling framework based on Kubernetes that integrates real-time carbon intensity data to dynamically optimize high-energy workloads across cloud platforms, significantly improving energy efficiency and supporting sustainable development goals.
+Carbon-Aware Temporal Data Transfer Scheduling Across Cloud Datacenters  (rodrigues2025carbon,)
+ 	
+LinTS is a carbon-aware time-based data transmission scheduler that significantly reduces emissions from cross-data center communications by aligning transmissions with low-carbon periods while meeting all task deadlines.
+ 
+† Industry paper
+
+Collectively, both hardware and software optimization strategies are central to enabling scalable, environmentally sustainable container scheduling in cloud-native systems. These research efforts represent critical steps toward carbon-aware and energy-efficient computing infrastructure.
+
+6.Detailed Hardware Optimized Algorithm
+6.1.Energy Efficiency Sustainability Goal
+6.1.1.Energy Consumption Priority Scheduler
+
+Holistic Scheduling Monitor the hardware response of each server in the data center with predictive capabilities to assess the impact of each new incoming container in the system so that containers can be assigned to nodes more optimally to reduce power consumption, improve performance, or balance between the two.
+
+Server hardware behavior modeling translates multiple influences such as ambient temperature, power consumption, and internally recorded server metrics into a multivariate polynomial equation. This can be considered an optimization problem and can be applied to a variety of different types of data centers.
+
+In addition to collecting hardware metrics, a large number of software metrics need to be collected from the containers running in the distributed cluster. Since collecting software metrics also incurs significant overhead and the amount of data to be analyzed can be quite large, it is appropriate to collect software metrics at a frequency that provides an acceptable level of accuracy, but not so frequently as to cause excessive storage or analysis overhead.
+
+Through large-scale testing, the scheduler using a combination of hardware and software metrics scheduling methodology consumes 10%-20% less power with essentially the same performance as Kubernetes (townend2019improving,).
+
+HEATS Scheduling Strategy Each cloud provider has different CPU architectures, GPUs, FGPAs, ASICs, or whether the processor frequency can be dynamically increased or decreased. And in order to accommodate different resource requirements, tasks can be migrated from one cloud provider machine to another to meet the demand. The HEATS container scheduling strategy utilizes the underlying hardware resource model to place the tasks on the most appropriate currently available hardware resource nodes.
+
+Gather resource requirements before task execution, use Heapster to collect hardware state, and model hardware nodes with different architectural runtimes and energy consumption. Periodically, the energy consumption to performance ratio of each node is calculated as weights, and tasks are assigned to the highest scoring node. Each computer architecture can reduce energy consumption at the expense of performance, but in different ratios. Testing shows that this approach reduces energy consumption by 1.5% compared to Kubernetes’ scheduling strategy without compromising performance. If energy consumption is prioritized, it can be reduced by up to 7.1% (rocha2019heats,).
+
+PEAKS: Power-Efficiency-Aware Kubernetes Scheduler The core idea of PEAKS (Power-Efficiency-Aware Kubernetes Scheduler) (souza2024peaks,) is to extend Kubernetes scheduling by incorporating node-level power efficiency metrics to improve energy utilization without degrading performance. PEAKS leverages the Kepler project to collect power-related telemetry (such as CPU power, memory power, and energy per instruction) and assigns each node a power efficiency score. During scheduling, it filters available nodes and ranks them not only by resource availability but also by their power efficiency scores, preferring nodes that can perform more work per watt. This allows Kubernetes to make energy-aware scheduling decisions, reducing overall power consumption and carbon footprint while maintaining Quality of Services(QoS).
+
+Real-Time Node’s Power-Aware Kubernetes Scheduler(NPAKS) in a Cloud Environment This paper proposes NPAKS (kumari2025npaks,), an energy-aware scheduler for Kubernetes that enhances energy efficiency by incorporating real-time energy consumption metrics of cluster nodes into scheduling decisions. Unlike the default Kubernetes scheduler, which primarily considers resources such as CPU and memory, NPAKS utilizes real-time telemetry data collected by Prometheus and Kepler to identify and prioritize nodes with lower energy consumption. By deploying Pods on energy-efficient nodes while meeting service level agreements (SLAs), NPAKS aims to reduce overall energy consumption in cloud environments. This method is implemented as a custom plugin within the Kubernetes scheduling framework and has demonstrated quantifiable energy savings in testbed experiments.
+
+Fine-Grained Heterogeneous Execution Framework with Energy Aware Scheduling This paper proposes an energy-aware scheduling framework based on Kubernetes, specifically optimized for fine-grained task execution in heterogeneous computing environments involving CPUs, GPUs, and FPGAs. By integrating with technologies such as NVIDIA’s Multi-Process Service (MPS), the framework enables more efficient utilization of hardware accelerators, facilitating the collaborative execution of multiple lightweight tasks on shared resources. By combining energy-aware scheduling with hardware-specific scheduling, the framework improves workload completion time and reduces energy consumption for CPU and GPU workloads. This approach enhances performance and sustainability in serverless and data-intensive computing environments (rattihalli2023fine,).
+
+6.1.2.Data Center Cost Management Strategies
+
+Virtual Data Center Deployment Model based on the Green Cloud Computing The technology in this paper is based on virtualization and reduces energy consumption and carbon footprints in cloud computing by introducing a green cloud management framework. Unlike traditional virtual machine-based services, this framework uses a virtual data center (VDC) model to group virtual machines according to network communication patterns. These VDCs are then strategically deployed in green data centers to optimize energy efficiency, minimize environmental impact, and maximize service provider revenue. While the framework predates container orchestration platforms like Kubernetes, its principles can be extended to inform energy-aware scheduling strategies in modern Kubernetes-based infrastructures (xu2014virtual,).
+
+Carbon-Efficient Virtual Machine Placement in Cloud Datacenters over Optical Networks This paper introduces an integer linear programming (ILP) model which seeks to minimize carbon emissions by determining the optimal deployment locations for virtual machines (VMs) across geographically distributed data centers. The model takes into account key constraints such as latency, bandwidth, and resource capacity between data centers, while also incorporating each data center’s power usage effectiveness (PUE) and carbon efficiency (CE) metrics to guide deployment decisions. Simulation results demonstrate that migrating VMs to more environmentally friendly regions can achieve significant emission reductions without violating service level requirements. Although the model was initially designed for VMs similar to Virtual Data Center, the proposed carbon-aware deployment strategy can be adapted to modern Kubernetes-based environments by integrating carbon intensity and latency metrics into container scheduling strategies, thereby enabling sustainable orchestration of containerized workloads (zhang2023carbon,).
+
+6.2.Carbon Awareness Sustainability Goal
+6.2.1.Multi-Criteria Optimization Methods
+Static and Dynamic Temperature-Aware Scheduling for Multiprocessor SoCs This paper proposes a fundamental method for temperature-aware task scheduling in multi-processor system-on-chip (MPSoC) systems, aiming to reduce thermal hotspots, spatial temperature gradients, and thermal cycling, which can degrade system reliability and increase cooling and leakage costs (coskun2008static,). The method introduces both ILP-based static scheduling strategies and dynamic operating system-level scheduling strategies, significantly improving thermal behavior while maintaining performance. The static ILP model achieves performance improvements by optimizing energy consumption, balance, and thermal uniformity, while the dynamic scheduler adaptively reduces high-intensity thermal effects by minimizing overhead. Although this is an early research result, it still has significant influence and practical significance in energy efficiency perception and thermal perception scheduling research. This is because it lays the foundation for integrating thermal constraints into system-level scheduling strategies, a concept that is becoming increasingly important in modern multi-core and edge computing platforms.
+
+KCSS Scheduling Algorithm The Kubernetes Container Scheduling Strategy (KCSS) is a multi-criteria scheduler designed to minimize scheduling and execution time as well as overall power consumption (menouer2021kcss,). Built on Kubernetes and inspired by tools like Docker SwarmKit and Apache Mesos, KCSS balances user time constraints with cloud provider energy efficiency by selecting optimal nodes using the TOPSIS algorithm.
+
+KCSS currently considers six criteria:
+
+(1) Maximize CPU usage: Deploy tasks to nodes with high CPU utilization when future requirements are unknown.
+(2) Maximize memory usage: Select nodes with high memory usage under similar uncertainty.
+(3) Maximize disk usage: Prioritize nodes with higher disk usage to consolidate workloads.
+(4) Minimize power consumption: Use CloudSim Plus to estimate and select nodes with lower energy demand.
+(5) Minimize running containers: Distribute load evenly for resilience.
+(6) Minimize deployment time: Favor nodes with cached container images to reduce network overhead.
+Experiments demonstrate that KCSS outperforms the default Kubernetes scheduler and other standard strategies in reducing task latency, power consumption, and container wait times for large-scale workloads.
+
+Carbon-Aware Online Control
+
+The carbon-aware control framework manages cloud services distributed across various geographical locations in a way that minimizes carbon emissions. The framework exploits the spatial and temporal variabilities in the carbon footprint of electricity across different regions (zhou2015carbon,). The framework focuses on three key areas:
+
+• Geographical Load Balancing: Distributes workloads across different data centers based on their carbon efficiency.
+• Capacity Right-Sizing: Adjusts the number of active servers in each data center to match the current demand efficiently.
+• Server Speed Scaling: Dynamically adjusts server speeds to balance performance and energy consumption.
+Lyapunov Function Construction A Lyapunov function is constructed to represent the system’s state and stability. This function helps in monitoring the system’s performance and ensuring that it remains within desired operational bounds.
+
+Drift-Plus-Penalty Minimization The system aims to minimize the Lyapunov drift-plus-penalty, which ensures that the system remains stable while optimizing the desired objectives. The drift represents the change in the Lyapunov function, while the penalty represents the cost or emission metrics that need to be minimized.
+
+Online Decision Making Based on real-time data, the framework makes online decisions regarding load balancing, capacity right-sizing, and server speed scaling. These decisions are made iteratively, ensuring that the system adapts to changing conditions and continues to optimize performance.
+
+6.2.2.Temporal and Spatial Carbon Shifting Systems
+Carbon Aware Computing While digital transformation can reduce emissions from physical activities, software itself contributes to carbon output through energy consumption. Carbon-aware computing aims to reduce this impact by aligning workloads with cleaner energy availability, primarily via time shifting (Microsoft2023,).
+
+For instance, in solar-rich regions, carbon intensity is lower midday. Shifting short, high-load tasks to such windows reduces emissions. Key criteria include intensity, duration, capacity, and startup time. The Software Carbon Intensity (SCI) metric quantifies emissions, calculated as:
+
+SCI
+=
+(
+Energy Use
+×
+Carbon Intensity
+)
++
+Hidden Emissions
+Software Size
+Optimization involves (1) measuring intensity over time/location, (2) predicting optimal windows, (3) comparing with actual usage, and (4) evaluating SCI reduction.
+
+CarbonScaler: Leveraging Cloud Workload Elasticity for Optimizing Carbon-Efficiency The core idea of this paper is to reduce the carbon footprint of cloud batch processing workloads by introducing carbon scaling, a dynamic resource allocation strategy. Carbon scaling is a strategy that dynamically adjusts server utilization rate based on the real-time carbon intensity of the power grid (hanafy2023carbonscaler,). Unlike traditional pause-resume methods, which can significantly delay task completion times, carbon scaling leverages the elasticity of batch processing tasks to minimize emissions while maintaining performance. The authors propose a greedy marginal resource allocation algorithm and implement it as a Kubernetes-based prototype system called CarbonScaler, which leverages Kubernetes’ native auto scaling capabilities. By adjusting computing resources based on carbon signals, CarbonScaler achieves significant emissions reductions of up to 51% compared to carbon-agnostic execution. This demonstrates that Kubernetes can serve as an effective platform for carbon-conscious workload orchestration.
+
+Caspian: Carbon-Aware Multi-Cluster Scheduling for Cloud-Native Workloads Caspian, developed by IBM, is a carbon-aware scheduler for multi-cluster Kubernetes environments that minimizes the carbon footprint of containerized workloads by leveraging spatial and temporal variations in electricity carbon intensity. It dynamically schedules tasks across geographically distributed clusters and optimal time windows based on real-time or predictive carbon data, while maintaining Quality of Service (QoS) and service level objectives (SLOs). Caspian integrates with the Multi Cluster App Dispatcher (MCAD) and the Kubernetes scheduling framework, using optimization algorithms and external carbon intensity APIs to inform intelligent workload placement and timing decisions. Experimental results show that Caspian can reduce carbon emissions by approximately 33%, and 98% of workloads are completed on time without compromising performance, achieving sustainability (ibm2024caspian,).
+
+S.C.A.L.E.: Scheduler for Carbon-Aware Load Execution at ING SCALE is a practical carbon-aware scheduling framework developed by ING, designed to reduce greenhouse gas emissions from data centers. SCALE targets resource-intensive batch pipelines, intelligently scheduling tasks during periods when renewable energy supply is abundant and grid carbon intensity is low. The framework comprises three core modules: a module for predicting task execution times, a module for forecasting green energy supply and grid demand, and a module for integrating with existing data pipelines. By shifting flexible batch workloads to “green energy periods,” SCALE is expected to achieve a 20% reduction in carbon emissions while meeting task deadlines. The paper also highlights that effects may vary due to seasonality and data arrival patterns, but overall, it demonstrates the feasibility and benefits of carbon-aware scheduling in large Kubernetes-based data systems in real-world scenarios.
+
+6.2.3.Carbon-Aware Workload Shifting
+Microsoft Carbon-Aware Computing Microsoft’s “Carbon-Aware Computing White Paper” proposes a framework for reducing the carbon footprint of software by enabling systems to be time and location aware (Microsoft2023,). The core concept involves collaborating with the Green Software Foundation and WattTime to obtain real-time carbon emission intensity data from various regions, and then shifting workloads to cleaner time slots and regions within the power grid, thereby minimizing emissions without compromising performance. To this end, Microsoft has developed an open-source Carbon-Aware Software Development Kit (Carbon-Aware SDK), which enables developers to make intelligent scheduling decisions based on real-time or predictive carbon data. The white paper also introduces the Software Carbon Intensity (SCI) specification, a standardized metric for quantifying the carbon impact of software. Through a collaboration with UBS, Microsoft demonstrates that carbon-aware workload shifting can achieve significant emission reductions, highlighting the potential of embedding sustainability directly into software architecture.
+
+Intel Telemetry Aware Scheduling Intel adjusts the load through external telemetry, such as CPU and power usage. By setting a threshold for Telemetry Aware Scheduling (TAS), Kubernetes’ Horizontal Pod Autoscaler(HPA) is triggered when a pod’s threshold is elevated, then reducing emissions at the physical level by creating more pods (intel2024tas,).
+
+7.Detailed Software Optimized Algorithm
+7.1.Energy Efficiency Sustainability Goal
+7.1.1.Machine Learning and Deep Learning Based Scheduling Approaches
+
+An RL-Based Model for Optimized Kubernetes Scheduling: The core idea of this paper is to develop RLKube, a custom Kubernetes scheduler plugin that uses reinforcement learning (RL) to improve task scheduling efficiency in Kubernetes (K8s) clusters (rothman2023rl,). RLKube aims to maximize resource utilization, improve Pod throughput, and enhance energy efficiency, thereby overcoming the limitations of default K8s scheduling strategies, such as Least-allocated and Most-allocated. By adopting a Dual-Depth Q-Network (DDQN) with Priority Experience Replay (PER), RLKube is trained to make scheduling decisions based on multiple optimization objectives. Multiple reward functions are defined to target specific objectives, such as energy savings, fairness, and performance.
+
+RLKube is directly integrated into the Kubernetes scheduling pipeline as a scoring plugin, with its decisions based on real-time cluster metrics collected via Prometheus and Node Exporter. The system has been tested on both real and synthetic workloads, showing significant improvements in throughput and machine utilization compared to default strategies.
+
+This work is significant for Kubernetes-based infrastructure as it demonstrates how to effectively leverage machine learning (particularly RL) to design intelligent and adaptive scheduling strategies, making it an important reference for sustainable, high-performance, and dynamic orchestration in modern cloud and edge environments.
+
+Optimizing Energy Consumption of Kubernetes Clusters with Deep Reinforcement Learning This paper proposes a method based on deep reinforcement learning (DRL) aimed at reducing the energy consumption of Kubernetes clusters. By training a Proximal Policy Optimization (PPO) agent using a custom neural network, the system can learn an optimized pod placement strategy that balances the needs of newly created and running pods. To enforce the required resource allocation in the Kubernetes environment, researchers developed a Kubernetes Operator based on the Operator Framework. This Operator introduces a custom resource definition (CRD) named PodPlacement, enabling real-time integration with the control plane. Evaluated in heterogeneous tests simulating edge cloud environments, the DRL-based scheduler achieved up to 24% energy savings compared to the default Kubernetes scheduler, with particularly significant results under unsaturated cluster conditions. This method achieves a balance between sustainability and performance without compromising Pod execution success rates (espinosa2024optimizing,).
+
+EETS: An energy-efficient task scheduler in cloud computing based on improved DQN algorithm EETS (Energy-Efficient Task Scheduler) is a deep reinforcement learning based task scheduling framework designed to minimize energy consumption and task response time in cloud computing environments. EETS is based on an improved Deep Q-Network (DQN) architecture by integrating Double DQN and Dueling DQN (D3QN) to address overestimation bias and improve value stability. It also incorporates Prioritized Experience Replay (PER) to improve sample learning efficiency during training. The scheduler models the environment as a batch-based Markov Decision Process (MDP) where tasks are assigned to virtual machines (VMs) based on their attributes and current VM states. Its reward function balances energy use, waiting time and execution time using tunable weights and energy consumption is estimated using a linear model based on CPU utilization. The evaluation done on Alibaba’s Cluster Trace with 20 heterogeneous VMs shows that EETS outperforms various heuristic, meta-heuristic and DRL baselines across different workload sizes. While the current simulation is on independent tasks, the authors propose extending the framework to support Directed Acyclic Graphs (DAGs) for scheduling interdependent tasks (hou2024eets,).
+
+An energy efficient RL based workflow scheduling in cloud computing This paper presents an energy-efficient workflow scheduling framework for cloud computing that leverages Reinforcement Learning (RL) to optimize multiple objectives, including energy consumption, execution time, and cost. The framework also integrates security through the X-NOR Whirlpool hashing algorithm to ensure that only legitimate access is granted to the cloud. For optimization and monitoring, the framework integrates several advanced techniques: LWMA-Sea Lion Optimization for parameter minimization, Jordan Normal Form-Deep Kronecker Neural Network(JNF-DKNN) for resource monitoring, and Fuzzy Self-Defense Algorithm(CD-FSDA) for selecting efficient virtual machines to schedule tasks. Evaluation on standard datasets reveals that the proposed LJC(LWMA + JNF-DKNN + CD-FSDA) framework exhibits superior performance as well as higher security compared to existing algorithms (reddy2023energy,).
+
+HunterPlus: AI based energy-efficient task scheduling for cloud-fog computing environments This paper applies deep learning to cloud-fog task scheduling to improve the energy efficiency by building on the existing HUNTER model, an AI based holistic resource management technique for sustainable cloud computing. HUNTER utilizes a Gated Graph Convolution Network (GGCN) as a surrogate model to approximate the Quality of Service (QoS) for a given system state and generate optimal scheduling decisions. HunterPlus, an extension of the HUNTER model, explores two enhancements. First, the original GGCN’s gated recurrent unit (GRU) is extended with a bidirectional GRU to process the input graph sequences both in forward and backward direction. This added temporal context leads to more stable and consistent resource allocation decisions with improvements in energy savings compared to uni-directional GGCN. The second contribution is a CNN-based surrogate scheduler in which resource-task allocation states are encoded as 2D arrays (”images”) and processed with a Convolutional Neural Network. This surrogate model learns the mapping between host-task matrices and energy outcomes, enabling gradient-based optimization for real-time scheduling. This enhancement achieved at least 17% reduction in energy consumption per task and 10.4% improvement in job completion rate compared to both GGCN variants (tuli2022hunter,).
+
+Energy-Efficient Cloud Computing Through Reinforcement Learning-Based Workload Scheduling To address load balancing, the model computes a VM utilization variance metric and triggers task migration when the imbalance exceeds a defined threshold. Tasks for migration are selected based on the complexity-to-resource ratio to ensure that high-priority jobs are scheduled efficiently. The authors simulate dynamic workload scenarios and assess model performance across parameters like latency, throughput, resource utilization, load balancing and QoS. Based on evaluation output, the model reduce latency to 15 ms and throughput up to 500 tasks/sec with 92% efficiency in load balancing, 95% resource usage and 97% QoS (malipatil2025energy,).
+
+Opportunistic Energy-Aware Scheduling for Container Orchestration Platforms Using Graph Neural Networks This paper proposes an opportunistic energy-aware container scheduling framework for Kubernetes that uses a Graph Neural Network (GNN) to predict the power consumption of container workloads based on telemetry data and application signatures. A novel graph model is developed to represent host machines using a heterogeneous graph structure composed of nodes representing various hardware resources (CPU, memory, disk, network, GPU, FPGA, SmartNIC, temperature sensors etc) and edges encoding physical or semantic relationships between them. Telemetry data is collected every second from Prometheus-based exporters (cAdvisor, NodeExporter, Nvidia DCGM, HPE iLO, Xilinx xbutil), aggregated into time frames and used to generate feature vectors for each node. The application’s resource usage signature is captured via container-level metrics for a subset of sensors and a merge function is defined to simulate what-if scheduling scenarios by combining this signature with the current host graph. The authors use a Heterogeneous Graph Transformer stacked with pooling layers and linear transformations to predict min, max and average power consumption over a time frame. The model achieves a mean RMSE of 7.5% on profiling data collected from AMD 7443 dual-socket CPUs and can distinguish between similar hosts with different idle power due to hardware accelerators like GPUs (raith2024opportunistic,).
+
+Energy-efficient DAG scheduling with DVFS for cloud data centers This study proposes E2DSched, a reinforcement learning-based hierarchical scheduler for online Directed Acyclic Graph (DAG) job scheduling in heterogeneous cloud data centers, focusing on joint optimization of energy consumption and quality of service (QoS). E2DSched integrates Dynamic Voltage and Frequency Scaling (DVFS) into its decision-making and decomposes the scheduling process into three distinct layers: task selection, server selection and frequency control. Each layer is managed by a separate PPO-based reinforcement learning agent which enables fine-grained decisions while avoiding the convergence issues associated with large action spaces. A key contribution is the development of a lightweight and accurate energy consumption model that predicts server power usage based on CPU frequency and load and is validated with around 5% error on Intel Xeon servers. E2DSched is evaluated using the BitBrain dataset and scientific workflows across cluster sizes ranging from 10 to 100 nodes. Results show that E2DSched can reduce energy consumption in heterogeneous clusters without signifcantly compromising quality of service compared to traditional methods (yang2024energy,).
+
+7.1.2.Heuristics, Metaheuristics, and Analytical Approaches
+KEIDS: K8S Energy and Interference Driven Scheduler KEIDS(Kubernetes-Based Energy and Interference Driven Scheduler) is based on three core principles
+
+1. Minimize carbon intensity by optimizing the use of green energy.
+
+2. Minimize IoT interventions between devices while achieving superior performance.
+
+3. Minimize software and hardware consumption.
+
+By using these principles as a multi-objective optimization problem, the energy utilization of edge cloud nodes is improved. This enables faster scheduling of applications to available nodes while reducing interference from other IoT devices. Ultimately, this approach ensures optimal performance for end users (kaur2019keids,).
+
+Energy-aware Scheduling Algorithm for Microservices in Kubernetes Clouds This paper addresses the inefficiency of Kubernetes’ default scheduling in distributed microservices by introducing an energy-aware scheduling algorithm that considers service level agreement (SLA) constraints and cross-service communication patterns. The method quantifies communication frequency based on network traffic and prioritizes Pods according to resource consumption. To improve placement efficiency, the authors integrate an improved swallow search algorithm (ISSA), which optimizes Pod packaging by combining communication intensity and resource requirements. The method aims to reduce CPU overhead and energy waste caused by heartbeat mechanisms and Pod-to-Pod communication. Experimental evaluations in cloud environments demonstrate that the method can reduce total cluster energy consumption by at least 5% while maintaining SLA compliance (rao2024sla,).
+
+Analyzing Energy-Efficient and Kubernetes-Based Auto-scaling of Microservices Using Probabilistic Model Checking This paper proposes an energy-efficient method for analyzing automatic scaling strategies of applications in cloud environments based on microservices. The authors propose multiple Markov decision process (MDP) models in the Kubernetes Horizontal Pod Autoscaler (HPA) to capture different constraints and scaling behaviors. They use probabilistic model checking (PMC) to evaluate the energy consumption and SLA violations caused by these automatic scaling strategies. These models are encoded using action-based boundaries (BBA) and state-based boundaries (BBS) techniques, enabling formal verification and sensitivity analysis of scaling decisions. The research findings indicate that combining latency with energy consumption metrics in scaling strategies yields optimal energy efficiency results. This framework provides cloud engineers with a method to evaluate and select auto-scaling strategies that minimize energy consumption while meeting service objectives (Jawaddi2025,).
+
+GreenPod: Energy-Optimized Scheduling for AIoT Workloads Using TOPSIS This paper introduces Greenpod, a multi-criteria, energy-aware Kubernetes scheduler designed specifically for Artificial Intelligence of Things(AIoT) workloads in heterogeneous cloud edge environments. The scheduler uses the TOPSIS decision-making framework to evaluate factors such as execution time, energy consumption, CPU core count, memory availability, and load balancing to determine the optimal Pod placement. When tested on actual Google Kubernetes Engine (GKE) clusters, Greenpod achieved up to 39.1% energy savings compared to the default Kubernetes scheduler, particularly in workloads with moderate complexity. Test results demonstrate that Greenpod can effectively balance sustainability and performance with minimal scheduling latency, making it suitable for a wide range of resource-sensitive applications (pradeep2025energy,).
+
+3GC: A deadline-aware and energy-efficient resource allocation scheme for serverless edge computing The core idea of this paper is to improve the energy efficiency and cost-effectiveness of performing tasks in serverless edge environments. The proposed approach named Go-Green-Go-Cheap (3GC) introduces a deadline-aware real-time resource allocation framework that utilizes Dynamic Voltage and Frequency Scaling (DVFS) to balance latency and energy consumption. The framework is designed for Kubernetes-based platforms and aims to minimize execution time and energy costs while meeting latency requirements. Evaluation results show that 3GC reduces operational costs by 39.35% to 69.43%, outperforming existing allocation strategies without violating functional deadlines (bellal20253gc,).
+
+FOA-Energy: A Multi-objective Energy-Aware Scheduling Policy for Serverless-based Edge Cloud Continuum This paper presents FOA-energy (Function Orchestration Algorithm, version energy), a two-level multi-objective scheduling policy designed for serverless computing in the heterogeneous edge-cloud continuum and uses Kubernetes as the orchestration backbone. FOA-energy addresses challenges in serverless environments including energy consumption, cold start delays, makespan, data transfer overhead and platform heterogeneity. The scheduling policy simultaneously optimizes three objectives: minimizing energy consumption, makespan and data transfers. It operates across two levels of the continuum: the global level (across clusters) and the local level (within clusters). At the global level, FOA-Energy solves a linear programming (LP) formulation to allocate functions and container environments to clusters while minimizing energy cost and data transfers under a makespan constraint. This fractional solution is then transformed into an integral schedule using a minimum-cost integral matching method inspired by the Shmoys-Tardos algorithm  (shmoys1993approximation,). At the local level, the policy uses one of four traditional strategies including First-fit, First Come First Serve(FCFS), Smallest-first and Largest-first to assign functions to individual machines while also considering container layer reuse to minimize image downloads and reduce cold start delays. FOA-energy is evaluated using 1,350 experiments across bare-metal and simulated environments showing that it outperforms a Kubernetes-based baseline by up to three orders of magnitude in energy, makespan and data transfer (da2025foa,).
+
+Energy-efficient virtual machine scheduling in IaaS cloud environment using energy-aware green-particle swarm optimization This paper presents a Green Particle Swarm Optimization (GPSO) algorithm for optimizing virtual machine (VM) consolidation in cloud data centers consisting of heterogeneous servers.The GPSO algorithm recognizes the trade-offs between reducing energy consumption and maintaining service level agreement (SLA) compliance, and thus identifies energy-efficient “green” servers (green particles) and schedules virtual machines to minimize the number of active servers. This reduces power consumption while controlling SLA violations. When implemented in CloudSim, GPSO outperforms existing VM scheduling algorithms in terms of energy efficiency and quality of service (ajmera2023energy,).
+
+7.1.3.Energy Consumption Metrics Observation
+
+Kepler: A Framework to Estimate Energy Consumption Kepler (Kubernetes-based Efficient Power Level Exporter) is an open-source framework for estimating power consumption at the process, container, and pod levels in Kubernetes clusters (kepler,). It leverages hardware-level APIs (e.g., Intel RAPL, NVML) and eBPF to extract real-time system metrics.
+
+Power is categorized into:
+
+• Idle Power – baseline consumption at rest
+• Dynamic Constant Power – load-independent activity power
+• Dynamic Variable Power – load-dependent power
+Kepler includes three components:
+
+• Metric Exporter collects process-level data.
+• Model Server trains regression models (e.g., XGBoost, SVR) to estimate power.
+• Inference Module predicts consumption, aggregated using cgroups, and exports via Prometheus.
+Compared to traditional aggregated models (MSE: 0.92), Kepler achieves a much lower MSE of 0.010. It enables three scheduling algorithms: GNN, GNN-Aware, and GNN-Packing, which use container signatures and host states to minimize energy use. GNN-based scheduling reduces energy consumption by 6.2% without affecting workload makespan (raith2024opportunistic,).
+
+Container-level Energy Observability in Kubernetes Clusters This paper proposes KubeWatt, an energy observability tool for Kubernetes clusters that addresses key limitations in the existing CNCF project Kepler, which estimates container-level power consumption. While Kepler relies on utilization metrics and power models ( RAPL, NVML, Redfish) to estimate node and container power, it exhibits inaccuracies such as attributing idle power to non-running containers and misallocating dynamic power to undefined system processes. To evaluate this, the authors develop a controlled testbed using iDRAC and Redfish APIs on a Dell PowerEdge server for ground-truth node-level power data and Prometheus/cAdvisor for CPU and container metrics. Experimental results show Kepler has a container-level RMSE of 66.4W and underperforms during transitions like pod deletions. On the other hand, KubeWatt introduces a refined allocation model that separates static (idle) and dynamic power, where dynamic power is proportionally distributed among running containers based on their CPU usage. KubeWatt operates in three modes: base initialization (on idle clusters), bootstrap initialization (using linear regression on sub-50% CPU utilization data) and estimation mode (for real-time monitoring). KubeWatt estimates static power within 0.2% of ground-truth measurements and provides accurate dynamic power attribution across containers. Its design makes it a practical and reliable foundation for fine-grained energy and carbon-aware scheduling in Kubernetes environments.
+
+7.2.Carbon Awareness Efficiency Sustainability Goal
+7.2.1.Fair Resource Allocation Strategies
+
+Reducing Cloud Expenditures and Carbon Emissions via Virtual Machine Migration and Downsizing Data centers have a large number of virtual machines running, consuming more and more energy and having a larger carbon footprint. If a balance can be struck between VM performance and carbon intensity, carbon intensity can be reduced by sacrificing the least amount of performance. Experiments have shown that carbon intensity can be effectively reduced by allowing some latency, reducing some bandwidth and increasing the capacity of green data centers (xu2014virtual,).
+
+Data centers can also be virtualized like virtual machines and place virtual data centers in low-emission green data centers. However, it’s crucial to consider external factors such as the costs associated with green data centers and electricity consumption. By carefully balancing these factors, providers can maximize benefits while simultaneously reducing carbon emissions.
+
+By analyzing data from over 2.6 million virtual machines and their carbon intensity metrics, we can quantify the energy inefficiency of cloud computing. Implementing VM scheduling algorithms based on this analysis can effectively reduce carbon emissions and lower the costs associated with cloud computing operations.
+
+Machine learning algorithms are utilized to predict the carbon intensity of tasks at different time intervals. Using these predictions, tasks can be dynamically rescheduled to minimize carbon intensity by following to predefined thresholds or scheduling tasks during periods of lowest average carbon intensity. This approach optimizes resource utilization and helps reduce the environmental impact of computing operations.
+
+VM waste can be obtained by multiplying the cost by the VM’s CPU unused rate.
+
+waste = cost * (1 - CPU Utilization)
+
+To reduce excessive waste or inefficiency in VMs, consider reducing the number of cores without impacting essential services. In addition, identify and shut down VMs with low CPU utilization to optimize resource usage and maintain operational efficiency (huang2023reducing,).
+
+A Low-Carbon Kubernetes Scheduler: Demand Side Management Demand Side Management (DSM) enables users to monitor and adjust energy use to reduce peak demand, improve reliability, and lower costs (James2019ALC,). In a low-carbon scheduling context, task placement decisions are guided by comparing the emissions of local and remote data centers.
+
+Let:
+
+• 
+E
+​
+C
+A
+,
+E
+​
+C
+B
+: Compute energy at Data Centers A and B
+• 
+I
+A
+,
+I
+B
+: Carbon intensity at A and B
+• 
+E
+​
+R
+B
+: Deployment energy at B
+• 
+E
+​
+N
+A
+​
+B
+: Transfer energy from A to B
+• 
+I
+A
+​
+B
+: Transfer carbon intensity
+A migration to Data Center B is preferred if:
+
+(1)		
+E
+​
+C
+A
+​
+I
+A
+>
+E
+​
+C
+B
+​
+I
+B
++
+E
+​
+R
+B
+​
+I
+B
++
+E
+​
+N
+A
+​
+B
+​
+I
+A
+​
+B
+The Heliotropic Scheduler (‘follow-the-sun”) The “follow the sun” model addresses the challenges posed by the intermittency of solar energy, which cannot consistently meet electricity standards in one location throughout the day. This model minimizes emissions by strategically shifting applications to areas with higher solar availability as the sun moves across the globe (James2019ALC,).
+
+Dominant Resource Fairness: Fair Allocation of Multiple Resource Types Dominant Resource Fairness (DRF) generalizes max-min fairness to multi-resource settings by equalizing users’ shares of their dominant resource (ghodsi2011dominant,).
+
+DRF ensures: sharing incentive, strategy-proofness, envy-freeness, and Pareto efficiency.
+
+Example: With 9 CPUs and 18 GB RAM:
+
+• User A: (1 CPU, 4 GB) per task, dominant = RAM
+• User B: (3 CPUs, 1 GB) per task, dominant = CPU
+Let 
+x
+, 
+y
+ be the number of tasks for A and B. Constraints:
+
+x
++
+3
+​
+y
+≤
+9
+,
+4
+​
+x
++
+y
+≤
+18
+,
+2
+​
+x
+9
+=
+y
+3
+Solving yields 
+x
+=
+3
+, 
+y
+=
+2
+; A uses 3 CPUs and 12 GB, B uses 6 CPUs and 2 GB.
+
+Scheduling: DRF selects the user with the lowest dominant share whose task fits. Example sequence:
+
+• Step 1: B (dominant share 
+1
+/
+3
+)
+• Step 2: A twice (
+2
+/
+9
+→
+4
+/
+9
+)
+• Step 3: B again until resources are exhausted
+Ant Colony Algorithm
+
+In ACO-based micro-service scheduling, worker ants simulate task (micro-service) assignment to servers. Each ant starts from a random task, selects servers probabilistically based on pheromone trails, and updates pheromones through frequent traversal (reinforcement) or evaporation (decay). Ants avoid redundant paths and iteratively assign all tasks, collectively optimizing task distribution.
+
+The heuristic integrates three objectives: (1) minimizing inter-service network overhead, (2) balancing cluster load, and (3) reducing average request failure rate. Solution quality is fed back into pheromone updates, enhancing future path selection. This dynamic, intelligent scheduling approach improves reliability, reduces network overhead, balances loads, and lowers carbon emissions (8744199,).
+
+7.2.2.AI-Driven and Deep Reinforcement Learning Schedulers
+Smart-Kube: Energy-Aware and Fair Scheduler The core idea of this paper is to develop Smart-Kube, a Kubernetes-compatible scheduler that uses Deep Reinforcement Learning (DRL) to optimize energy consumption while maintaining fairness in multi-node cluster environments (ghafouri2023smart,). Traditional schedulers may not effectively balance energy efficiency, fairness, and long-term performance. Smart-Kube addresses this issue by introducing a multi-objective reward function that simultaneously considers energy savings, fairness in task allocation, and long-term system performance.
+
+Smart-Kube’s DRL agent learns to allocate tasks across nodes to achieve the following objectives:
+
+• Minimize the cluster’s energy consumption.
+• Prevent individual nodes from becoming overloaded to ensure fairness.
+• Ensure long-term system performance stability by avoiding local optima.
+Smart-Kube is designed to run within the Kubernetes ecosystem, introducing a DRL-based intelligent decision-maker by replacing or enhancing the default scheduler. This makes it a practical solution for real-world cloud-native deployments aimed at reducing operational energy consumption. It demonstrates how modern AI technology can be seamlessly integrated into Kubernetes to make scheduling smarter, more environmentally friendly, and fairer, aligning with broader goals of sustainable and responsible computing.
+
+Deep Learning-Driven Scheduler The DL cluster scheduler automatically matches the learning process of the scheduling policy and adapts to changes in the workload and the implementation of the ML framework (9328612,).
+
+The Deep Learning Scheduler uses a combination of offline supervised and online reinforcement learning. Deep learning improves performance by 44.1% compared to a fairness scheduler (i.e. DRF) (peng2021dl2,)
+
+Offline supervised learning: A neural network is trained based on past job data (e.g. carbon emission, job characteristics, resource allocation, and completion time). The network learns to recognize the relationship between these factors so that it can predict how different resource allocations will affect the training time for new jobs.
+
+Online Reinforcement Learning: As new jobs are submitted, the trained network is further adapted based on its performance on these new jobs, allowing the network to continually adapt and improve its prediction of future job scheduling decisions.
+
+MAIZX: A Carbon-Aware Framework for Optimizing Cloud Computing Emissions The MAIZX framework provides a scalable, carbon-aware solution that optimizes cloud computing operations by dynamically assessing the real-time and predicted carbon intensity, power usage effectiveness (PUE), and energy efficiency of computing nodes, including private clouds, hybrid clouds, and multi-cloud environments. By directly integrating with virtualization hypervisors and applying an agent-based decision-making mechanism, MAIZX can effectively reduce carbon dioxide emissions by over 85%, while adapting to fluctuating workloads and carbon emission conditions, ensuring that performance and reliability remain unaffected (MAIZX,).
+
+Greenflow: A carbon-efficient scheduler for deep learning workloads GreenFlow addresses the significant carbon emissions generated during deep learning training on GPU clusters by introducing a carbon-aware scheduler. This scheduler dynamically adjusts GPU allocation within a specified carbon budget to minimize the average job completion time (JCT). The system uses performance models to predict task throughput and energy consumption under different configurations and dynamically adjusts GPU allocation based on grid carbon intensity. GreenFlow also employs techniques such as network bundling and peer allocation to optimize resource utilization and reduce emissions caused by fragmentation. Evaluation results demonstrate that GreenFlow can significantly improve performance while maintaining compliance with carbon constraints (gu2024greenflow,).
+
+7.2.3.Serverless, Edge, and Federated Solutions
+GreenCourier: Carbon-Aware Scheduling for Serverless Functions GreenCourier is a scheduling framework that minimizes the carbon footprint of serverless functions by leveraging real-time emissions data (chadha2023greencourier,).
+
+Carbon Data Integration: It uses sources like WattTime and the Carbon-Aware SDK to monitor regional carbon efficiency in real-time.
+
+Geographical Scheduling: Functions are dispatched to regions with the lowest current emissions, optimizing for carbon efficiency across distributed locations.
+
+Carbon-Aware Algorithm: The scheduler prioritizes deployments that minimize emissions per invocation, reducing the overall carbon impact of serverless computing.
+
+CAFE: Carbon-Aware Federated Learning Federated Learning (FL) enables distributed training across data centers while preserving data locality, a necessity due to legal and regional constraints. CAFE reduces emissions by selecting data centers in low-carbon regions during each training round (cafe,).
+
+• Data Quality Variation: CAFE introduces a probing step to estimate model gradients using sampled data from candidate data centers.
+• Carbon Intensity Uncertainty: To handle unknown future carbon levels, it uses a Lyapunov Drift-plus-Penalty framework that balances model performance and emission bounds.
+• Time-Constrained Selection: A greedy algorithm selects an optimal subset of data centers based on convergence speed, test accuracy, utility, and carbon footprint.
+• Double Greedy Algorithms: Both deterministic and randomized versions iteratively grow and shrink sets of data centers, balancing gain and loss in training performance.
+CEFL: Carbon-Efficient Federated Learning CEFL introduces a carbon-aware client selection framework that optimizes cost-to-accuracy by considering each client’s carbon emissions, calculated as energy consumed 
+×
+ average carbon intensity (cefl,).
+
+Prior Strategies:
+
+• Random Selection: Inefficient in accuracy and resource usage.
+• Data-Utility Based: Clients selected based on contribution to accuracy, with more participants in early training rounds (critical learning periods).
+CEFL Strategy:
+
+• Client Cost Awareness: Accounts for variability in energy and carbon cost (e.g., smartphones vs. data centers).
+• Score Aggregator: Combines client cost and statistical utility to compute utility-per-cost and selects top clients accordingly.
+• Critical Learning Period: Uses more clients early to accelerate convergence, then fewer to conserve cost.
+CEFL reduces carbon emissions by up to 80%, with only a 38% increase in training time compared to accuracy-only strategies.
+
+KEDA: Kubernetes-based Event Driven Autoscaling KEDA is an open-source Kubernetes operator enabling event-driven autoscaling for workloads using sources like Kafka, Prometheus, or AWS SQS (KEDA,). It integrates with Kubernetes’ Horizontal Pod Autoscaler (HPA) by exposing custom metrics and can scale workloads from zero to optimize resource use.
+
+How It Works:
+
+• Deployment: Runs as an operator, watching ScaledObjects that define scaling rules.
+• Event Monitoring: Triggers scaling by evaluating event source metrics.
+• HPA Integration: Feeds event metrics into HPA for scaling decisions.
+• Scale-to-Zero: Frees resources by scaling to zero when idle.
+Carbon-Aware KEDA Operator: An extension that uses real-time carbon intensity data (e.g., from WattTime or Electricity Map) to limit KEDA scaling. It introduces a custom resource CarbonAwareKedaScaler to set MaxReplicaCount, throttling workloads during high-carbon periods and increasing scale when carbon intensity is low.
+
+CASA: A Framework for SLO- and Carbon-Aware Auto scaling and Scheduling in Serverless Cloud Computing This paper proposes a carbon emissions and Service Level Objectives(SLOs) aware container scheduling and auto-scaling framework called CASA, designed for serverless computing platforms. The framework aims to address the challenge of balancing carbon footprint minimization with performance maintenance in a Function-as-a-Service (FaaS) environment. Traditional energy-saving methods, such as shutting down idle containers, often result in increased latency due to cold starts, while methods that improve performance by preheating containers increase emissions. CASA achieves this balance by dynamically adjusting container scheduling and auto-scaling strategies based on carbon intensity and SLO constraints. Experimental evaluations show that CASA significantly reduces carbon emissions and service level violation rates compared to existing best practices (qi2024casa,).
+
+GreenWhisk: Emission-Aware Computing for Serverless Platform GreenWhisk is a carbon-aware serverless computing platform built on Apache OpenWhisk, designed to reduce the environmental impact of jobs execution in cloud environments. It addresses fluctuations in grid carbon intensity and renewable energy availability by integrating carbon-aware load balancing algorithms. GreenWhisk supports both grid-connected and grid-isolated modes, enabling transparent jobs scheduling based on real-time carbon and energy data without compromising performance. As a flexible infrastructure, the platform can seamlessly integrate various carbon-awareness strategies into serverless architectures (serenari2024greenwhisk,).
+
+7.2.4.Carbon Emission Index Priority Scheduling Frameworks
+Carbon Emission-Aware Job Scheduling for Kubernetes Deployments
+
+The goal of this paper is to present a practical approach to reducing carbon emissions in Kubernetes by smartly scheduling workloads. The core idea is to use history energy statistics to identify times when energy has less carbon footprints and shift non-critical tasks to those periods. We make sure this doesn’t affect the performance of critical jobs, so services stay reliable (piontek2024carbon,).
+
+The key contributions include:
+
+• A carbon emission-aware scheduling algorithm that integrates seamlessly with Kubernetes by adapting job submission times based on historical carbon intensity trends.
+• A priority-aware mechanism to distinguish between critical and delay-tolerant jobs, ensuring that only flexible workloads are shifted to reduce emissions.
+• Demonstration of substantial carbon footprint reduction with negligible impact on job performance in practical Kubernetes clusters.
+This work shows how Kubernetes can be adapted to make cloud computing greener. By taking into account periods of lower energy consumption, we can run workloads more sustainably without sacrificing speed or system availability.
+
+CASPER: Carbon-Aware Scheduling and Provisioning for Distributed Web Services CASPER reduces the carbon footprint of geographically distributed web services by scheduling requests in regions with lower carbon intensity, while meeting service-level latency constraints (Souza_2023,). Deployed in Kubernetes, CASPER consists of:
+
+• Carbon-Aware Provisioner (CAP): Optimizes the number and location of active servers to minimize emissions while satisfying latency SLOs. It formulates a multi-objective problem using estimated carbon intensities and user request data, ignoring resource and communication constraints except server count.
+• Carbon-Aware Scheduler (CAS): Acts as a load balancer, distributing user requests across regions per CAP’s provisioning plan, and schedules requests not covered by CAP.
+Experiments show up to 70% energy savings with minimal performance impact when CASPER is integrated with Kubernetes.
+
+PCAPS: Carbon- and Precedence-Aware Scheduling for Data Processing Clusters This paper explores how to address carbon-aware scheduling challenges in large-scale data processing tasks where task dependencies exist. It introduces PCAPS, a scheduler that combines time-varying carbon intensity data with task priorities to avoid delaying critical upstream tasks that could block the entire processing pipeline. PCAPS integrates with machine learning based schedulers and provides a configurable trade-off between minimizing carbon emissions and maintaining task completion times. The authors also propose CAP, a generic wrapper for carbon-neutral schedulers that inherits PCAPS’s resource scheduling strategies. Experiments on a 100-node Kubernetes Spark cluster demonstrate that PCAPS can reduce carbon emissions by up to 32.9% while maintaining overall scheduling efficiency (lechowicz2025pcaps,).
+
+Operating Cloud Applications Under a Carbon Budget This paper proposes a carbon-aware deployment strategy for long-running microservice-based cloud applications that maintains application availability and performance under all conditions. Unlike traditional carbon-aware scheduling methods for batch tasks, this method operates on an hourly carbon budget and dynamically adjusts application configurations (including microservice versions and horizontal scaling) to optimize user quality of experience(QoE) and revenue while meeting environmental constraints. The authors propose an optimization algorithm that selects the most appropriate deployment configuration based on workload, carbon intensity, and budget, and validate its effectiveness through a flight booking application. The proposed method outperforms the baseline in terms of QoE and revenue while meeting the carbon budget, demonstrating its practical application value in real-world dynamic environments (espinosa2024optimizing,).
+
+U-DUCT: Uncertainty-aware Dynamic Unified Carbon Modeling Tool for Datacenter Scheduling The U-DUCT framework proposes an uncertain, dynamic, and unified carbon emissions modeling tool designed to comprehensively assess carbon emissions in data centers during both the design phase and operational phase. Unlike previous tools, U-DUCT not only considers computing servers but also incorporates the contributions of often-overlooked components such as storage devices and switches. Additionally, the framework accounts for variability and uncertainty in hardware and software characteristics, which can impact embedded carbon emissions and operational carbon emissions. Through this holistic and runtime-aware model, U-DUCT has identified new opportunities for emissions reduction in the actual computational workloads of data center components (guan2024u,).
+
+A Green Cloud-Based Framework for Energy Efficient Task Scheduling Using Carbon Intensity Data for Heterogeneous Cloud Servers
+
+This paper proposes a cloud-based scheduling framework that integrates real-time carbon intensity data to optimize the execution of energy intensive tasks in cloud data centers. The framework applied Kubernetes, AWS services, and containerized workloads to dynamically reschedule jobs with high energy consumptions based on the changes of regional carbon intensity. It results reducing operational carbon emissions without compromising performance. The framework emphasizes automation, scalability, and compatibility with major cloud providers, supporting sustainable practices aligned with the United Nations’ Sustainable Development Goals. The system enhances energy efficiency through intelligent workload management to address the growing energy demands of artificial intelligence and machine learning applications (beena2025green,).
+
+LinTS: Carbon-Aware Temporal Data Transfer Scheduling Across Cloud Data centers LinTS is a carbon-aware scheduling framework designed to reduce the environmental impact of inter-data center communication, which is the primary source of carbon emissions in cloud computing. By leveraging the temporal variation in carbon intensity across different data centers, LinTS optimizes data transmission scheduling to ensure that transfers occur during low-carbon periods while meeting all transmission deadlines. The system outperforms traditional heuristic algorithms through intelligent scaling and transmission decisions, reducing carbon emissions by up to 66% compared to worst-case scenarios and by 15% compared to state-of-the-art baselines. LinTS demonstrates how to effectively utilize time-based carbon data to enhance the sustainability of cloud infrastructure without compromising operational constraints (rodrigues2025carbon,).
+
+8.Challenges and Research Opportunities
+8.1.GPU Scheduler
+Enhancing Kubernetes scheduling with AI, particularly for GPU resource management, is a promising area. Song proposes dividing physical GPUs into multiple virtual GPUs to boost cluster utilization by 10% (song2018gaia,). Thinakaran develops a Kubernetes scheduler leveraging real-time GPU usage metrics to dynamically allocate GPU resources (thinakaran2019kube,). However, GPU scheduling in Kubernetes remains underexplored, with efficient container-level resource management still needing advancement (carrion2022kubernetes,).
+
+SCI Data and Location-Shifting Improving software carbon intensity (SCI) data is essential. Collecting energy data for virtual machines is harder than for bare metal. Additionally, configuring carbon intensity based on both time and location could offer more effective scheduling opportunities.
+
+8.2.Algorithm Trade-offs
+Current schedulers prioritize resource utilization but often ignore power usage efficiency (PUE), a key metric for sustainability. Reducing carbon intensity may require trade-offs, such as choosing between low-latency, high-carbon regions and high-latency, low-carbon ones. Future algorithms must account for the dynamic nature of both workloads and energy profiles.
+
+8.3.Microservices Scheduling
+Kubernetes faces challenges in managing microservices and modeled workloads. Pod-level scheduling can be inefficient for microservices. Gang scheduling, which groups related pods, can improve coordination. Meanwhile, workload prediction remains underdeveloped and is vital for efficient scheduling under dynamic demands.
+
+8.4.GPU Power Capping for Sustainable AI
+GPU power capping can improve energy efficiency in HPC. A study on MIT SuperCloud showed that applying a 60% power cap significantly reduced power consumption and GPU temperatures with minimal performance impact. However, care is needed to avoid triggering excess jobs that offset energy savings. Integrating such capping techniques into Kubernetes could benefit sustainable AI workloads (zhao2023sustainable,).
+
+8.5.Data Center Optimization
+Kubernetes can reduce carbon intensity through component impact measurement, task rescheduling, and carbon-aware algorithms. Baris shows that eco-friendly UPS batteries lower peak power costs (baris,), while Kontorinis finds no performance loss from such substitutions (kontorinis2012managing,). Kuroda enhances power systems by reducing AC-to-DC conversions (kuroda2013high,). Hancock recommends cold-region data centers (e.g., Iceland) for cooling benefits (HancockIceland,). Future modeling should examine how power delivery and consumption influence carbon intensity (datacentersreview,).
+
+8.6.Federated Learning
+One of the main challenges facing FL algorithms is the heterogeneity of client data. For example, different types of data may not be independently and identically distributed (non-IID) in terms of distribution, volume, or quality. For instance, some devices may only see digits 0 and 1 with skewed frequencies (nonIIDexplain,), affecting aggregation and model convergence.
+
+This problem worsens when FL is deployed on edge devices using green energy (e.g., wind turbines or sensors), which have variable data volumes due to memory, load, and location differences (brecko2022federated,; xie2022improving,). Limited bandwidth and intermittent connectivity further disrupt timely model updates (kang2020reliable,). Designing robust aggregation strategies under these constraints is an emerging research trend (abreha2022federated,).
+
+9.Conclusion
+This report discusses the shift in cloud computing from virtualization to containerization and the energy consumption challenges associated with these technologies, with a focus on the industry-standard container orchestration engine, Kubernetes. This work investigates not only the default scheduling and auto-scaling features of Kubernetes but also advanced hardware and software optimizations that can improve energy efficiency and carbon awareness in large scale data center operations. In our extensive literature review, we discuss the optimizations that have been applied to the Kubernetes scheduler for temporal and spatial shifting of workloads which reduces the environmental impact of workload execution. This report investigates the use of state-of-the-art machine learning techniques such as deep reinforcement learning and federated learning for optimized workload scheduling in Kubernetes. We emphasize enhancing carbon efficiency in federated learning workloads within data centers, while also leveraging federated learning to optimize the scheduling of distributed workloads without breaking data privacy by training models in a decentralized manner. The analysis of the challenges and research opportunities highlights that future research in this direction necessitates close cooperation between the government and enterprises, universities and other organizations. The development of reasonable standards and norms will also help promote the promotion and application of this technology.

@@ -1,0 +1,606 @@
+/* Energy Profiling - Minimal Design System Match */
+
+/* Component Legend */
+#componentLegend {
+    margin-top: 24px;
+}
+
+#componentLegend .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--white);
+    border: 1px solid var(--grey-200);
+    border-radius: 0;
+    font-size: var(--text-sm);
+    transition: all 0.2s ease;
+}
+
+#componentLegend .legend-item:hover {
+    background: var(--grey-100);
+    border-color: var(--grey-300);
+    transform: translateX(4px);
+}
+
+#componentLegend .legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+#componentLegend .legend-label {
+    flex: 1;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--black);
+}
+
+#componentLegend .legend-value {
+    color: var(--grey-600);
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 500;
+}
+
+/* Hotspots */
+#hotspotsContainer .hotspot-card {
+    background: var(--white);
+    border: 1px solid var(--grey-200);
+    border-left: 4px solid var(--grey-400);
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+}
+
+#hotspotsContainer .hotspot-card:hover {
+    background: var(--grey-100);
+    border-left-width: 6px;
+    transform: translateX(2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+#hotspotsContainer .hotspot-card.critical {
+    border-left-color: var(--danger);
+    background: #fef2f2;
+}
+
+#hotspotsContainer .hotspot-card.critical:hover {
+    background: #fee2e2;
+}
+
+#hotspotsContainer .hotspot-card.major {
+    border-left-color: var(--warning);
+    background: #fffbeb;
+}
+
+#hotspotsContainer .hotspot-card.major:hover {
+    background: #fef3c7;
+}
+
+#hotspotsContainer .hotspot-card.minor {
+    border-left-color: var(--accent);
+    background: #f0fdf4;
+}
+
+#hotspotsContainer .hotspot-card.minor:hover {
+    background: #dcfce7;
+}
+
+.hotspot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.hotspot-name {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--black);
+    text-transform: capitalize;
+}
+
+.hotspot-percentage {
+    font-size: 32px;
+    font-weight: 300;
+    font-family: var(--font-mono);
+    letter-spacing: -0.02em;
+    color: var(--black);
+}
+
+.hotspot-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding: 16px 0;
+    border-top: 1px solid var(--grey-200);
+    border-bottom: 1px solid var(--grey-200);
+    margin: 16px 0;
+}
+
+.hotspot-stat-label {
+    font-size: 11px;
+    color: var(--grey-600);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.hotspot-stat-value {
+    font-size: 20px;
+    font-weight: 500;
+    font-family: var(--font-mono);
+    color: var(--black);
+    margin-top: 4px;
+}
+
+.hotspot-recommendation {
+    font-size: 14px;
+    color: var(--grey-700);
+    line-height: 1.6;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 4px;
+    border-left: 2px solid var(--grey-300);
+}
+
+/* Recommendations */
+#recommendationsContainer .recommendation-card {
+    background: var(--white);
+    border: 1px solid var(--grey-200);
+    padding: 20px;
+    margin-bottom: 16px;
+    border-left: 4px solid var(--accent);
+    transition: all 0.2s ease;
+}
+
+#recommendationsContainer .recommendation-card:hover {
+    background: var(--grey-100);
+    border-left-width: 6px;
+    transform: translateX(2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.recommendation-title {
+    font-weight: 600;
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: var(--black);
+}
+
+.recommendation-text {
+    font-size: 14px;
+    color: var(--grey-700);
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+.recommendation-impact {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: var(--grey-100);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    color: var(--black);
+    border-left: 2px solid var(--accent);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--grey-400);
+}
+
+.empty-state p {
+    font-size: var(--text-base);
+}
+
+/* Input Row */
+.input-row {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.input-row select {
+    flex: 1;
+    min-width: 250px;
+}
+
+.input-row button {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Section Headings */
+h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--black);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--black);
+    margin-bottom: 16px;
+}
+
+/* Section Content */
+.section-content {
+    margin-top: 40px;
+}
+
+.section-content:first-child {
+    margin-top: 0;
+}
+
+/* Chart Containers */
+.chart-wrapper {
+    background: var(--white);
+    border: 1px solid var(--grey-200);
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+/* Section Dividers */
+.section-divider {
+    margin-top: 56px;
+    padding-top: 40px;
+    border-top: 2px solid var(--grey-200);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .hotspot-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    #componentLegend {
+        grid-template-columns: 1fr;
+    }
+    
+    .input-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .input-row select,
+    .input-row button {
+        width: 100%;
+    }
+}
+
+/* Test Suite Optimizer Styles */
+
+.recommendation-card {
+    background: var(--white);
+    border: 1px solid var(--grey-200);
+    border-radius: 0;
+    padding: 24px;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+}
+
+.recommendation-card:hover {
+    background: var(--grey-100);
+    transform: translateX(2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.recommendation-card.quick-win {
+    border-left: 4px solid var(--accent);
+    background: #f0fdf4;
+}
+
+.recommendation-card.quick-win:hover {
+    background: #dcfce7;
+}
+
+.recommendation-card.compact {
+    padding: 20px;
+}
+
+.recommendation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    gap: 16px;
+}
+
+.recommendation-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--black);
+    flex: 1;
+    line-height: 1.4;
+}
+
+.recommendation-badge {
+    padding: 6px 14px;
+    border-radius: 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    border: 1px solid;
+}
+
+.recommendation-badge.critical {
+    background: var(--white);
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+.recommendation-badge.high {
+    background: var(--white);
+    color: var(--warning);
+    border-color: var(--warning);
+}
+
+.recommendation-badge.medium {
+    background: var(--white);
+    color: #667eea;
+    border-color: #667eea;
+}
+
+.recommendation-badge.low {
+    background: var(--white);
+    color: var(--grey-600);
+    border-color: var(--grey-300);
+}
+
+.recommendation-description {
+    font-size: 15px;
+    color: var(--grey-700);
+    line-height: 1.7;
+    margin-bottom: 20px;
+}
+
+.recommendation-savings {
+    display: flex;
+    gap: 32px;
+    margin-bottom: 20px;
+    padding: 16px 20px;
+    background: var(--grey-100);
+    border-radius: 0;
+    border-left: 2px solid var(--accent);
+}
+
+.savings-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.savings-label {
+    font-size: 11px;
+    color: var(--grey-600);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.savings-value {
+    font-size: 16px;
+    font-family: var(--font-mono);
+    color: var(--black);
+    font-weight: 500;
+}
+
+.recommendation-steps {
+    margin-bottom: 20px;
+}
+
+.steps-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--black);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.recommendation-steps ol {
+    margin: 0;
+    padding-left: 24px;
+}
+
+.recommendation-steps li {
+    font-size: 14px;
+    color: var(--grey-700);
+    line-height: 1.7;
+    margin-bottom: 8px;
+}
+
+.recommendation-steps li::marker {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.recommendation-code {
+    margin-top: 20px;
+}
+
+.code-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--black);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.recommendation-code pre {
+    background: var(--black);
+    color: var(--white);
+    padding: 20px;
+    border-radius: 0;
+    overflow-x: auto;
+    margin: 0;
+    border: 1px solid var(--grey-800);
+}
+
+.recommendation-code code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.recommendation-meta {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    font-size: 13px;
+    font-family: var(--font-mono);
+    color: var(--grey-600);
+    font-weight: 500;
+}
+
+.priority-section {
+    margin-bottom: 32px;
+}
+
+.priority-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    padding: 10px 16px;
+    border-radius: 0;
+    display: inline-block;
+    letter-spacing: 0.08em;
+    border: 1px solid;
+}
+
+.priority-title.critical {
+    background: var(--white);
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+.priority-title.high {
+    background: var(--white);
+    color: var(--warning);
+    border-color: var(--warning);
+}
+
+.priority-title.medium {
+    background: var(--white);
+    color: #667eea;
+    border-color: #667eea;
+}
+
+.priority-title.low {
+    background: var(--white);
+    color: var(--grey-600);
+    border-color: var(--grey-300);
+}
+
+.roadmap-phase {
+    background: var(--white);
+    border: 1px solid var(--grey-200);
+    border-radius: 0;
+    padding: 24px;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+}
+
+.roadmap-phase:hover {
+    background: var(--grey-100);
+    border-color: var(--grey-300);
+    transform: translateX(2px);
+}
+
+.roadmap-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--grey-200);
+}
+
+.roadmap-icon {
+    font-size: 28px;
+}
+
+.roadmap-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--black);
+}
+
+.roadmap-items {
+    margin: 0;
+    padding-left: 56px;
+}
+
+.roadmap-items li {
+    font-size: 14px;
+    color: var(--grey-700);
+    line-height: 1.7;
+    margin-bottom: 8px;
+}
+
+.roadmap-items li::marker {
+    color: var(--accent);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--grey-500);
+    background: var(--grey-100);
+    border: 1px solid var(--grey-200);
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+/* Optimizer Results Section */
+#optimizerResults {
+    margin-top: 32px;
+}
+
+/* Better spacing for sections */
+.section > div {
+    margin-bottom: 32px;
+}
+
+.section > div:last-child {
+    margin-bottom: 0;
+}
+
+/* Profile Selection Improvements */
+#profileSelect {
+    font-size: 15px;
+    padding: 12px 16px;
+}
+
+#loadProfileBtn {
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+}

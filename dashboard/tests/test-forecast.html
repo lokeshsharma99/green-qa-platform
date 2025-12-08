@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forecast Widget Test</title>
+    <link rel="stylesheet" href="public/forecast.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #1976d2;
+        }
+        .info code {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+    <!-- Chart.js for forecast visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🔮 CarbonX Forecast Widget Test</h1>
+        
+        <div class="info">
+            <strong>ℹ️ Test Mode</strong><br>
+            This page tests the forecast widget with mock data. 
+            To use real API: Set <code>window.API_BASE_URL</code> and enable feature with <code>ENABLE_CARBONX_FORECAST=true</code>
+        </div>
+
+        <div id="forecast-widget-container"></div>
+    </div>
+
+    <script>
+        // Mock API for testing
+        window.API_BASE_URL = 'mock';
+
+        // Override fetch for testing
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            console.log('Fetch called:', url);
+            
+            // Mock forecast endpoint
+            if (url.includes('/v2/forecast')) {
+                const urlParams = new URLSearchParams(url.split('?')[1]);
+                const region = urlParams.get('region') || 'eu-west-2';
+                const hoursAhead = parseInt(urlParams.get('hours_ahead') || '24');
+                
+                // Generate mock forecast data
+                const forecasts = [];
+                const intervals = [];
+                const baseCI = region === 'us-east-1' ? 450 : region === 'eu-central-1' ? 400 : 250;
+                
+                for (let h = 1; h <= hoursAhead; h++) {
+                    const hourOfDay = (new Date().getHours() + h) % 24;
+                    const dailyFactor = 1.0 + 0.3 * Math.sin((hourOfDay - 6) * Math.PI / 12);
+                    const noise = (Math.random() - 0.5) * 20;
+                    const ci = Math.max(50, baseCI * dailyFactor + noise);
+                    
+                    const timestamp = new Date(Date.now() + h * 3600000).toISOString();
+                    
+                    forecasts.push({
+                        hour: h,
+                        timestamp: timestamp,
+                        carbon_intensity: Math.round(ci * 100) / 100
+                    });
+                    
+                    const margin = ci * 0.1 * (1 + h / 100);
+                    intervals.push({
+                        hour: h,
+                        timestamp: timestamp,
+                        lower_bound: Math.max(0, Math.round((ci - margin) * 100) / 100),
+                        upper_bound: Math.round((ci + margin) * 100) / 100,
+                        interval_width: Math.round(margin * 2 * 100) / 100,
+                        normalized_width: Math.round((margin * 2 / ci) * 1000) / 1000
+                    });
+                }
+                
+                const mockData = {
+                    region: region,
+                    forecast_timestamp: new Date().toISOString(),
+                    horizon_hours: hoursAhead,
+                    forecasts: forecasts,
+                    prediction_intervals: intervals,
+                    quality_metrics: {
+                        expected_mape_percent: 10 + (hoursAhead / 504) * 10,
+                        average_interval_width_normalized: 0.25,
+                        expected_coverage_percent: 95.0,
+                        forecast_horizon_hours: hoursAhead,
+                        model_type: 'TSFM-based (CarbonX-inspired)'
+                    },
+                    confidence_level: 0.95
+                };
+                
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve(mockData)
+                });
+            }
+            
+            // Fall back to original fetch for other requests
+            return originalFetch(url, options);
+        };
+    </script>
+    
+    <script src="public/forecast.js"></script>
+</body>
+</html>

@@ -1,0 +1,925 @@
+CarbonX: An Open-Source Tool for Computational Decarbonization Using Time Series Foundation Models
+Diptyaroop Maji1†, Kang Yang2†, Prashant Shenoy1, Ramesh K. Sitaraman1, Mani Srivastava2
+1University of Massachusetts Amherst  2University of California Los Angeles
+Abstract.
+Computational decarbonization aims to reduce carbon emissions in computing and societal systems such as data centers, transportation, and built environments. This requires accurate, fine-grained carbon intensity forecasts, yet existing tools have several key limitations: (i) they require grid-specific electricity mix data, restricting use where such information is unavailable; (ii) they depend on separate grid-specific models that make it challenging to provide global coverage; and (iii) they provide forecasts without uncertainty estimates, limiting reliability for downstream carbon-aware applications.
+
+In this paper, we present CarbonX, an open-source tool that leverages Time Series Foundation Models (TSFMs) for a range of decarbonization tasks. CarbonX utilizes the versatility of TSFMs to provide strong performance across multiple tasks, such as carbon intensity forecasting and imputation, and across diverse grids. Using only historical carbon intensity data and a single general model, our tool achieves a zero-shot forecasting Mean Absolute Percentage Error (MAPE) of 15.82% across 214 grids worldwide. Across 13 benchmark grids, CarbonX performance is comparable with the current state-of-the-art, with an average MAPE of 9.59% and tail forecasting MAPE of 16.54%, while also providing prediction intervals with 95% coverage. CarbonX can provide forecasts for up to 21 days with minimal accuracy degradation. Further, when fully fine-tuned, CarbonX outperforms the statistical baselines by 1.2—3.9
+×
+ on the imputation task. Overall, these results demonstrate that CarbonX can be used easily on any grid with limited data and still deliver strong performance, making it a practical tool for global-scale decarbonization.
+
+Computational Decarbonization, Time Series Foundation Models, Carbon Intensity Forecasting, Imputation
+†
+1.Introduction
+Societal infrastructure, including electricity grids, buildings, transportation, and computing systems, contributes over 80% of global greenhouse gas (GHG) emissions, underscoring the need for scalable decarbonization (U.S. Environmental Protection Agency, 2025). To reduce such GHG emissions, a new field of computational decarbonization is gaining attention in recent years (Irwin et al., 2025), which aims to reduce both operational and embodied carbon emissions associated with complex computing and societal infrastructure systems by leveraging sensing, optimization, and Artificial Intelligence (AI)-driven control.
+
+A key enabler for computational decarbonization is accurate, fine-grained estimates and forecasts of the electricity grid’s carbon intensity, which quantifies the emissions associated with per unit electricity usage over a period (in 
+gCO
+2
+​
+eq
+/
+kWh
+). Carbon intensity depends on several factors such as the electricity (energy) mix, weather, and demand patterns (Maji et al., 2022a), and therefore, varies significantly both spatially and temporally. For example, Figure 1 shows the carbon intensities in two locations: California exhibits a “duck curve” with midday solar dips and evening gas spikes, while Germany shows a higher and more volatile pattern driven by fossil fuels and intermittent wind or solar generation. Systems can take advantage of such variability to reduce their carbon emissions without compromising performance (Irwin et al., 2025; Thiede et al., 2023; Acun et al., 2023; Wiesner et al., 2021; Maji et al., 2023). For instance, flexible demands such as electric vehicle charging or large-scale Machine Learning (ML) model training can be scheduled during low-carbon periods to reduce the associated emissions. Thus, fine-grained carbon intensity estimates and accurate forecasts, when accessible at a global scale, can help in a significant reduction of carbon emissions and subsequently advance the decarbonization goals.
+
+Limitations of Prior Work. In recent years, several ML-based specialized tools have emerged that can provide accurate short-term grid carbon intensity forecasts (Maji et al., 2022b, a; Yan et al., 2025; Zhang and Wang, 2023). Although these tools show considerable promise, these tools face three key limitations when availability at a global scale is considered:
+
+Refer to caption
+Figure 1.Hourly carbon intensity (
+gCO
+2
+​
+eq
+/
+kWh
+) in the California and Germany grids over one week.
+(i) Dependence on data that are not generally available. Existing tools rely on information about a grid’s source mix to generate accurate carbon intensity forecasts. While some grid operators (CAISO, 2025; EIA, 2025) and services (Electricity Maps, 2025a; Watttime, 2025) have begun releasing historical carbon intensity data, reporting source mix remains non-mandatory (World Resources Institute, 2015) and is thus unavailable for many grids, limiting the applicability of existing models. For example, there are entire continents, such as Africa, where electricity mix data is either not available or only available at an annual scale (IEA, [n. d.]); hence, prior tools cannot be used.
+
+(ii) Dependence on grid-specific models. Prior tools rely on grid-specific models trained separately for each individual grid, and on some occasions, even individual electricity sources (Maji et al., 2022a). Although this design effectively captures grid-specific carbon dynamics, it is highly challenging to scale globally across grids. For example, at the transmission system operator level, there are more than 350 grids worldwide (Electricity Maps, 2025c). With each grid having multiple electricity sources, prior works need to train and maintain thousands of models. At the distribution level, there are more than 2500 operators alone in Europe (European Court of Auditors, 2025), making the per-grid design even more challenging.
+
+(iii) No quantification of forecast uncertainty. Similar to other forecasting systems (e.g., weather forecasts), carbon intensity prediction involves inherent uncertainty. Most prior works generate point forecasts without capturing possible variations. Such forecasts can deviate significantly from the ground truth, especially over multi-day horizons (Li et al., 2024), reducing the reliability of downstream applications that perform optimizations by relying on these forecasts.
+
+Our Goal. These gaps motivate the need for a tool that (i) operates without relying on auxiliary information such as energy mix, (ii) generalizes across global electricity grids using a unified architecture, (iii) produces uncertainty-aware forecasts suitable for real-world deployment, and is also easy to use and maintain at a global scale. In addition, tasks such as carbon intensity imputation remain underexplored despite their importance for carbon-aware optimizations. For example, imputation can recover missing data or enhance temporal resolution in regions with sparse carbon intensity reporting (Electricity Maps, 2025a), increasing the effectiveness of downstream carbon-aware applications. Therefore, there is also a need for a tool that can perform other tasks, such as carbon intensity imputation, in addition to forecasting.
+
+Lately, large-scale ML models, referred to as Time Series Foundation Models (TSFMs) (Goswami et al., 2024; Ansari et al., 2024; Das et al., 2024; Liu et al., 2025; Shi et al., 2024), are showing promise in forecasting and imputation tasks on time series data from other domains such as electricity and weather (Goswami et al., 2024; Ansari et al., 2024). Pre-trained on diverse time-series data across multiple domains, TSFMs capture rich temporal patterns through a unified architecture and often have strong zero- and few-shot performance on unseen domains using only an autoregressive approach. Thus, a tool that leverages the capabilities of TSFMs while operating on carbon intensity data can potentially overcome the limitations of the prior tools and meaningfully advance computational decarbonization.
+
+Our Research Contributions. In this paper, we present CarbonX, a tool built using TSFMs for tasks such as carbon intensity forecasting and imputation. Using only carbon intensity series and a single general model, CarbonX achieves an average Mean Absolute Percentage Error (MAPE) of 15.82% across 214 grids worldwide for the forecasting task. Although CarbonX has slightly higher forecasting errors than existing specialized tools in some grids, it delivers similar tail performance (see Section 6.1) using only historical carbon intensity as input. Further, it offers significantly more flexibility and versatility (see Table 2), such as one model for any grid and tasks beyond forecasting. These attributes make CarbonX more practical than any similar tools existing today. In summary, this paper makes the following contributions:
+
+(1) Open-Source Tool. We present CarbonX, an open source tool for global carbon intensity forecasting and imputation. CarbonX has a modular design that leverages the versatility of TSFMs to provide comparable accuracy with the current state-of-the-art using only historical carbon intensity data as input. We release CarbonX with the saved models, curated datasets, and an API suite to facilitate decarbonization research. These resources are available at https://github.com/codecexp/CarbonX.
+(2) Global Coverage with Strong Forecasting Accuracy. CarbonX provides multi-day carbon intensity forecasts across 214 grids globally. Due to its zero-shot capability, which requires no additional training, support for any new grids can also be added easily. On the 13 benchmark grids used in prior works, CarbonX attains 9.59% mean MAPE and 16.54% tail MAPE, compared to 7.75% and 15.61% for the current state-of-the-art. Across all 214 grids, the mean and tail MAPEs are 15.82% and 29.61%, respectively. CarbonX is the first research work to provide and evaluate carbon intensity forecasting on a global scale.
+(3) Extended Forecasting Horizon. CarbonX can forecast carbon intensity for an extended horizon with minimal performance loss. Our evaluation across 13 grids shows that CarbonX can forecast up to 21 days ahead with only a 5.40% average MAPE degradation. To our knowledge, it is the first work to support carbon intensity forecasting beyond a 96-hour horizon.
+(4) Uncertainty Quantification. CarbonX provides calibrated Prediction Intervals (PIs) to make the outputs reliable for downstream tasks. For forecasting, it achieves 95% average coverage with a 54.2% normalized interval width across 13 grids, demonstrating effective uncertainty quantification.
+(5) Imputation Support. CarbonX also supports carbon intensity imputation, offering versatility beyond forecasting. Our fully fine-tuned implementation achieves an average normalized RMSE of 0.24 across 50 grids even with 75% missing values, outperforming the statistical baselines by 1.2—3.9
+×
+.
+2.Background
+2.1.Electricity Grids and Carbon Intensity
+The electricity grid combines generation from renewable and non-renewable sources. Electricity is transmitted through high-voltage lines and distributed to end users. Each regional grid is managed by an operator who balances supply and demand. As demand varies, operators monitor the grid and weather conditions in real time, and dispatch generators accordingly to meet current demand.
+
+TSFM	Variant	Parameters
+MOMENT (Goswami et al., 2024) 	Large (AutonLab/MOMENT-1-large)	385M
+Chronos (Ansari et al., 2024) 	Large (amazon/chronos-t5-large)	710M
+TimesFM (Das et al., 2024) 	TimesFM-2.0-500M	500M
+Sundial (Liu et al., 2025) 	thuml/sundial-base-128m	128M
+Time-MoE (Shi et al., 2024) 	Maple728/TimeMoE-50M	50M
+Table 1.Supported TSFMs with variants and parameter sizes.
+Energy mix	Training data volume	Transferrable	Prediction	Tasks beyond	Forecasting
+not required	& training frequency	across grids	intervals	forecasting	accuracy
+EWMA (Shenoy and Hanafy, 2024) 	✓	High	✗	✗	✗	Moderate
+CarbonCast (Maji et al., 2022a) 	✗	High	✗	✗	✗	High
+CarbonCast w/ PI (Li et al., 2024) 	✗	High	✗	✓	✗	High
+EnsembleCI (Yan et al., 2025) 	✗	High	✗	✗	✗	High
+CarbonX	✓	Low	✓	✓	✓	Moderate-High
+Table 2.Comparison between CarbonX and existing state-of-the-art models.
+Carbon Intensity (CI). The average carbon intensity of a grid (in 
+gCO
+2
+​
+eq
+/
+kWh
+) is the generation-weighted average of emissions from each electricity source at a certain time:
+
+(1)		
+Carbon Intensity (CI)
+=
+∑
+(
+E
+i
+⋅
+C
+​
+E
+​
+F
+i
+)
+∑
+E
+i
+,
+where 
+E
+i
+ is the electricity generated by source 
+i
+ (e.g., coal, solar, gas) in 
+kWh
+, and 
+C
+​
+E
+​
+F
+i
+ is its corresponding carbon emission factor (CEF, in 
+gCO
+2
+​
+eq
+/
+kWh
+), a standardized value for each source (Schlömer et al., 2014; Department of Business, Energy and Industrial Strategy, 2021).
+
+2.2.Time Series Foundation Models (TSFMs)
+A TSFM is a large-scale ML model pre-trained on diverse time-series datasets (Goswami et al., 2024; Ansari et al., 2024). By learning universal temporal representations, it enables zero-shot or few-shot adaptation across domains. TSFMs have been applied to multiple domains ranging from electricity load forecasting to healthcare (Asgharnezhad et al., 2024; Liang et al., 2024; Goel et al., 2025; Nguyen et al., 2023; Kalahasti et al., 2025). These applications demonstrate TSFMs’ ability to generalize across domains and encourage application of new or existing TSFMs on carbon intensity data.
+
+2.2.1.Supported TSFMs.
+Table 1 lists the TSFM variants currently supported by CarbonX, and their parameter counts. These models differ in architecture (e.g., encoder-decoder) and training strategy (e.g., supervised, self-supervised). The modular design of CarbonX enables seamless integration of current and future TSFMs.
+
+MOMENT (Goswami et al., 2024): A transformer-based model, pre-trained using a masked time series. It segments input sequences into fixed-length patches and encodes them using a modified T5-style (Raffel et al., 2020) transformer. A reconstruction head then enables patch-level prediction.
+
+Chronos (Ansari et al., 2024): A transformer-based forecasting model that repurposes language models for time series. It tokenizes time series via scaling and quantization into a fixed-size vocabulary, enabling training with off-the-shelf encoder-decoder (Raffel et al., 2020). It uses cross-entropy loss to model the categorical distribution of tokenized values.
+
+TimesFM (Das et al., 2024): A decoder-only model that processes time series as sequences of non-overlapping patches, which are embedded using residual multilayer perceptron blocks and passed through stacked transformer layers with causal self-attention.
+
+Sundial (Liu et al., 2025): A Transformer-based model that pre-trains directly on continuous time series without tokenization, leveraging a flow-matching TimeFlow loss to predict next-patch distributions, mitigate mode collapse, and generate arbitrary-length forecasts.
+
+Time-MoE (Shi et al., 2024): A decoder-only Transformer with a sparse Mixture-of-Experts (MoE) design that activates only a few experts per step, reducing computation while preserving model capacity. Similar to others, it supports variable forecasting horizons.
+
+2.2.2.TSFM Fine-Tuning.
+TSFMs show improved performance under a few-shot setting, when fine-tuned with data from the same domain on which they are applied (Goswami et al., 2024). Fine-tuning strategies can be categorized as model-oriented or data-oriented.
+
+In model-oriented fine-tuning, either a subset or the entire model is updated using domain-specific data. Fine-tuning only part of the model, e.g., the task head layers, is referred to as lightweight fine-tuning. Updating all model parameters constitutes full fine-tuning.
+
+Data-oriented fine-tuning for grid data falls into two types. In domain-specific fine-tuning, the model is trained on data from multiple grids and evaluated on an unseen grid, testing inter-grid generalization. In grid-specific fine-tuning, the model is fine-tuned and evaluated on data from the same grid, testing intra-grid accuracy.
+
+3.Related Work
+Table 2 summarizes the key differences and advantages of our tool relative to previous approaches.
+
+3.1.Carbon Intensity Forecasting
+Short-term carbon intensity forecasting (up to 96 hours) is increasingly well-studied due to its importance for decarbonization. Traditional time-series forecasting methods, such as EWMA (Shenoy and Hanafy, 2024) and ARIMA (Seabold and Perktold, 2010; Bokde et al., 2021; Leerbeck et al., 2020), have been applied in several prior works because of their simplicity and effectiveness in capturing temporal patterns. However, such statistical models struggle to handle high variability and are less effective for multi-day forecasting horizons.
+
+Domain-Specific ML Models. To address the limitations of traditional statistical methods, ML models have emerged as state-of-the-art solutions (Maji et al., 2022a; Zhang and Wang, 2023; Yan et al., 2025). CarbonCast (Maji et al., 2022a) employs a two-tier ML architecture for 96-hour carbon intensity forecasting. The first tier predicts electricity generation for each energy source. The second tier takes these predictions along with historical carbon intensity and weather forecasts to estimate 96-hour carbon intensity forecasts. More recently, EnsembleCI (Yan et al., 2025) applies ensemble learning across three base models to produce 96-hour forecasts. Each base model predicts the carbon intensity of a given grid, and a stacking-based strategy is used to generate the final forecast. Despite their effectiveness, these models rely on extensive grid-specific electricity mix data, frequent retraining, and grid-specific model development to maintain accuracy. In contrast, CarbonX requires only historical carbon intensity and achieves similar accuracy in many grids. Additionally, CarbonX also provides prediction intervals.
+
+Proprietary Forecasting Services. Electricity Maps (Electricity Maps, 2025a) and WattTime (Watttime, 2025) offer global carbon intensity forecasts. However, these forecasts are proprietary, and their underlying models and grid-wise forecasting accuracy are not publicly available. In contrast, our tool is fully open-sourced to support transparency and reproducibility for researchers and practitioners.
+
+Forecast Uncertainty. Most prior works provide only point-value forecasts and do not quantify uncertainty. Recently, Li et al. (Li et al., 2024) have extended CarbonCast (Maji et al., 2022a), where they apply a sequential conformal prediction method (Xu and Xie, 2023) to generate prediction intervals. However, underlying limitations remain, such as its reliance on electricity mix data and the per-grid model. In contrast, CarbonX requires only historical carbon intensity data to generate intervals.
+
+Refer to caption
+Figure 2.CarbonX end-to-end pipeline. The frontend communicates with the task module and the database during execution.
+3.2.Carbon Intensity Imputation
+Carbon intensity imputation enables recovery of missing data and generation of higher-resolution estimates than those currently available. For example, given hourly carbon intensity data, imputation can be applied to generate sub-hourly values. At present, only Electricity Maps performs imputation using a combination of statistical and machine learning techniques (Electricity Maps, 2025b). However, their models are proprietary. While statistical methods are commonly used for data imputation, to the best of our knowledge, CarbonX is among the first to explore carbon intensity imputation as a standalone task.
+
+4.CarbonX design
+CarbonX is a generalizable, versatile tool that performs carbon domain tasks across electricity grids with high accuracy, using univariate carbon intensity series. It currently supports multi-day forecasting and imputation, and can be extended to other decarbonization tasks, such as anomaly detection, with minimal changes.
+
+4.1.End-to-end Pipeline and Usage
+We begin by briefly describing the end-to-end pipeline and illustrating how to use CarbonX. Figure 2 illustrates the CarbonX pipeline, including the frontend and backend, where the frontend interacts with the backend’s task module and database during execution.
+
+4.1.1.CarbonX Backend.
+CarbonX backend comprises a data fetcher module, a task module, and a database to store both fetched and generated data.
+
+Data Fetcher. The data fetcher module periodically retrieves carbon intensity data from various public data sources. Currently, CarbonX fetches hourly carbon intensity data from Electricity Maps (Electricity Maps, 2025c) for 214 grids. We plan to include other sources, such as EIA (EIA, 2025) and ENTSOE (ENTSO-E, 2025), in the future. While the module currently runs once daily, the periodicity can be adjusted as per requirements. Once fetched, the data is forwarded to the task module as well as updated to the database.
+
+Task Module. The task module receives data from the data fetcher and performs the desired task. Regardless of the task, it first runs imputation (using MOMENT) so that any missing data is filled.
+
+Figure 3 illustrates the CarbonX task module for carbon intensity forecasting. The module can use any new or existing TSFM to forecast 
+y
+^
+t
++
+1
+:
+t
++
+H
+ from historical input 
+y
+t
+−
+L
++
+1
+:
+t
+, where 
+L
+ is the input length and 
+H
+ is the forecast horizon. The output is then passed through a conformal prediction layer, which produces a prediction interval with coverage guarantees. Once the forecasts and prediction intervals are generated, we update the database. We describe the task module in more detail in Section 4.2.
+
+Database. The database is currently a list of files containing the actual carbon intensity data, carbon intensity forecasts, and prediction intervals for all the supported grids. The database is updated daily after the data fetcher and task modules run.
+
+4.1.2.CarbonX Frontend.
+The frontend provides a suite of APIs that users or downstream services can use to easily access any historical carbon intensity data, as well as forecasts from any prior or current date for any supported grid. For example, suppose a data center in Texas requires carbon intensity forecasts for the next day in order to optimally schedule a batch job. Calling get_ci_forecasts(ERCOT, <date>, 24, True) will retrieve day-ahead carbon intensity forecasts from CarbonX for the Texas grid (ERCOT) along with prediction intervals.
+
+Additionally, CarbonX users can set any preferred TSFM and the mode of operation (zero-shot or fine-tuned), query which grids are supported, and even generate finer resolution carbon intensity data as per requirements. Table 10 in Appendix A provides a description of the APIs currently supported by CarbonX, the required parameters, and the values returned. A detailed documentation can be found in https://github.com/codecexp/CarbonX.
+
+Refer to caption
+Figure 3.CarbonX task module comprises TSFMs followed by a conformal layer. This figure shows the forecasting task. The TSFM uses 
+L
+ timesteps of historical data to forecast the next 
+H
+ timesteps. A conformal layer then produces calibrated prediction intervals with desired coverage.
+4.2.CarbonX Task Module
+The CarbonX task module takes only a univariate carbon intensity time series as input and performs forecasting or imputation. The task module consists of three sub-modules:
+
+(i) Regardless of any task, the input to the task module is passed through a TSFM that performs carbon intensity imputation. This step ensures that any missing data is accurately estimated before further processing. The TSFM can operate in zero-shot or fine-tuned mode per requirements. At present, CarbonX uses MOMENT for imputation. If the desired task is imputation, the next sub-module is skipped, and the data is sent to the conformal layer.
+
+(ii) For other tasks, the data is input to a second TSFM. This sub-module is model-agnostic and can leverage any TSFM best suited for the task, providing flexibility to evaluate both newly developed and existing models, including those from other domains. For instance, we plug in five representative TSFMs to assess their forecasting performance. The TSFMs can operate either in zero-shot or fine-tuned modes. The output is passed to the conformal layer.
+
+(iii) The final sub-module is a conformal layer that provides calibrated intervals with desired coverage given a point-value time series, where coverage is defined as the percentage of times the actual values fall within the interval. Tasks such as multi-day forecasting involve significant uncertainty, as forecasts get progressively worse with an increasing horizon. Many existing TSFMs have the capability to provide probabilistic forecasts from which prediction intervals can be obtained. However, providing intervals naively without any coverage guarantees may not be helpful. To address this, CarbonX applies a conformal prediction technique on the point-value data. The conformal layer calibrates the intervals to cover the ground truth 95% of the time.
+
+Our modular design ensures that any TSFM or any conformal prediction technique best suited for a particular task can be applied with minimal changes. This enhances the accuracy and reliability of CarbonX, making it a reliable tool for downstream decarbonization applications that require robust carbon intensity estimates.
+
+Next, we describe the zero-shot and fine-tuned modes of operation in detail, followed by our uncertainty quantification approach.
+
+4.2.1.Zero-Shot Mode.
+There are three challenges when applications attempt to estimate or forecast carbon intensity to assess their carbon emissions. First, many power grids lack information beyond historical carbon intensity. Second, even when such data is available, it may contain large gaps due to reporting errors or power outages. Third, maintaining separate models for each grid becomes increasingly difficult as applications scale across regions.
+
+The zero-shot mode addresses these challenges by applying TSFMs pre-trained on data from other domains directly to unseen carbon-related tasks. A single TSFM is deployed in all grids, without any task- or grid-specific fine-tuning. This “plug-and-play” mode is useful for short-term tasks where forecasts are only required for a limited amount of time, or in grids where data for fine-tuning is unavailable. The zero-shot mode is also practical in real-world deployment scenarios where global carbon intensity data is required to make optimization decisions. For example, spatial demand-shifting across data centers to reduce carbon emissions may require forecasts from all the grids where the data centers are located. In such scenarios, the zero-shot mode will be beneficial, while maintaining separate models per grid may be infeasible.
+
+(i) Zero-shot Forecasting. For zero-shot forecasting, CarbonX input consists solely of univariate historical carbon intensity data from electricity grids. At present, CarbonX does not include any other information that may be available (e.g., weather forecasts). However, covariate support can be added with minimal changes. As mentioned, we evaluate five TSFMs in this mode (see Table 1).
+
+During zero-shot forecasting, we also vary the input length (e.g., 24 to 480 hours) and output length (e.g., 1 to 21 days) to study how historical context and forecasting horizon shape model behavior. Short inputs may capture recent trends and support short-term responsiveness, while longer inputs may reveal seasonal patterns but risk introducing noise. On the other hand, TSFMs may be able to generalize over a longer time due to their large model size, contrary to existing domain-specific ML models (Maji et al., 2022a; Yan et al., 2025; Zhang and Wang, 2023) that typically support only up to 4-day forecasts due to limited model capacity.
+
+(ii) Zero-shot Imputation. At present, CarbonX uses MOMENT for imputation, since only MOMENT supports imputation among the explored TSFMs. The input for the imputation task is a carbon intensity time series with portions intentionally masked. This setup mirrors real-world conditions where data gaps arise from reporting delays or power outages (US Energy Information Administration, 2022). Similar to forecasting, a single model is applied uniformly across grids to estimate missing values using the temporal patterns that the model learnt during pre-training.
+
+4.2.2.Fine-Tuned Mode.
+Many grids release historical carbon intensity data over extended periods (Electricity Maps, 2025c). Since fine-tuning with data from the target domain typically improves TSFM performance (Goswami et al., 2024), CarbonX supports fine-tuning with domain-specific historical data to provide better carbon intensity forecasts and estimates. This mode can be useful for longer-term deployments or if forecasts are required only for a small number of grids, where it can help capture the temporal distribution in data better than in the zero-shot mode. In this paper, we fine-tune all TSFMs except Sundial, which does not have fine-tuning capabilities yet (Liu et al., 2025).
+
+(i) Fine-Tuned Forecasting. We perform two types of fine-tuning for the forecasting task. First, we employ a lightweight, grid-specific fine-tuning strategy to improve the forecasting accuracy. For example, we fine-tune only the linear forecasting head of MOMENT using carbon intensity data (
+y
+) from a grid while keeping the transformer backbone fixed. At each timestep 
+t
+, the model looks back at the last 
+L
+ time steps (
+y
+t
+−
+L
++
+1
+:
+t
+), and is trained to forecast the next 
+H
+ time steps (
+y
+^
+t
++
+1
+:
+t
++
+H
+). The updated model is then evaluated on unseen data from the same grid.
+
+Unlike domain-specific tools such as CarbonCast (Maji et al., 2022a) or EnsembleCI (Yan et al., 2025), which train separate models from scratch for each grid, we use a shared pre-trained transformer across all grids and update only a few model layers. This enables one-to-few-shot learning and inter-grid generalization, since the majority of the parameters remain unchanged across grids.
+
+Since the above strategy still needs some grid-specific modifications, we also perform full, domain-specific finetuning to build a scalable, general model. Specifically, we fine-tune all the layers of a TSFM on the combined training data from more than 200 grids. This mode falls in between the zero-shot and grid-specific fine-tuning modes, and is designed to capture diverse carbon intensity patterns without the need for per-grid customization.
+
+Among the TSFMs with fine-tuning capabilities, MOMENT and TimesFM gain primarily from lightweight per-grid adaptation of their forecasting heads and are less suitable for this large-scale strategy. Additionally, Chronos and Time-MoE show little benefit from grid-specific fine-tuning (see Section 6.1). Hence, we focus only on Chronos and Time-MoE for the domain-specific strategy.
+
+(ii) Fine-Tuned Imputation. We explore both light-weight and full, grid-specific fine-tuning strategies for the imputation task. The objective is to reconstruct missing carbon intensity values, given a time series. Formally, let y = 
+{
+y
+1
+:
+T
+}
+ denote the complete time series over 
+T
+ time steps, and 
+m
+=
+{
+m
+1
+:
+T
+}
+ be a binary mask vector, where:
+
+(2)		
+m
+t
+=
+{
+0
+,
+if 
+​
+y
+t
+​
+ is missing (masked)
+1
+,
+if 
+​
+y
+t
+​
+ is observed
+The observed data is denoted by 
+y
+obs
+=
+{
+y
+t
+∣
+m
+t
+=
+1
+}
+,
+ and the model is trained to impute the missing values 
+y
+^
+t
+∀
+t
+∣
+m
+t
+=
+0
+.
+
+While the light-weight approach emphasizes scalability and generalization, full fine-tuning provides high reconstruction accuracy that outperforms the statistical baselines (see Section 7). We note that full fine-tuning results in a separate model for each grid and hence may not always be feasible. However, it achieves strong performance using only historical carbon intensity data and few-shot learning. Hence, we present the results from both strategies to provide a comprehensive comparison, leaving the desired strategy to the downstream application.
+
+4.2.3.Uncertainty Quantification.
+Carbon intensity estimates and forecasts involve considerable uncertainties due to external factors such as weather and changing grid conditions. Given a desired coverage level 
+α
+∈
+(
+0
+,
+1
+)
+, CarbonX’s conformal layer generates prediction intervals that cover the ground truth at least 
+100
+×
+α
+%
+ of the time to make the output more robust to uncertainties. For example, 
+α
+=
+0.95
+ corresponds to a 95% coverage. Our approach to ensure the desired coverage is as follows:
+
+Since CarbonX provides 96-hour forecasts (
+y
+^
+) on a daily basis, historical residuals for hours 25—96 are available after a delay. Suppose 
+H
+1..96
+ is the forecasting horizon for a day 
+d
+. Then, the most recent historical residuals for 
+H
+25..48
+ are available from day 
+d
+−
+1
+. Similarly, the most recent historical residuals for 
+H
+73..96
+ are available from day 
+d
+−
+3
+. This makes quantifying uncertainty particularly challenging. To quantify effectively and prevent leakage of any future data, we break down the 96-hour forecasting horizon into four forecasting days and compute separate lists of available historical residuals. The conformal layer then looks back at the residuals from the previous available 
+N
+ days to calibrate the current interval. We denote the previous 
+N
+ days as the calibration window, which is a hyperparameter that can be tuned. In our experiments, setting N as 75 provides the best results.
+
+We employ a horizon-specific strategy to obtain the prediction intervals. Specifically, for each hour 
+H
+ of the forecasting window, we look at the residual distribution for that particular hour in the calibration window to get the lower (
+q
+l
+​
+o
+H
+=
+α
+/
+2
+) and upper (
+q
+h
+​
+i
+H
+=
+1
+−
+α
+/
+2
+) quantiles for that hour. Once we obtain the quantiles, we generate prediction intervals 
+[
+L
+H
+,
+U
+H
+]
+ for that hour, where:
+
+(3)		
+L
+H
+=
+y
+H
+^
++
+q
+l
+​
+o
+H
+,
+U
+H
+=
+y
+H
+^
++
+q
+h
+​
+i
+H
+Thus, the final prediction interval for the whole horizon becomes 
+[
+L
+,
+U
+]
+, where 
+L
+=
+y
+^
++
+q
+l
+​
+o
+,
+U
+=
+y
+^
++
+q
+h
+​
+i
+.
+
+Since we employ a rolling calibration window for each evaluated day, 
+q
+l
+​
+o
+ and 
+q
+h
+​
+i
+ reflect the tail behavior of the most recent residuals and provide a data-driven estimate of the uncertainty. Calibrating with the most recent residuals ensures that the intervals adapt to local error patterns and achieve the desired coverage on average.
+
+5.Experimental Methodology
+This section outlines our experimental setup, including datasets, evaluation metrics, TSFM fine-tuning procedures, and the baselines used for comparison with CarbonX.
+
+5.1.Datasets and Data Sources
+Benchmark Grids. We compare CarbonX against the state-of-the-art on the 13 grids used in prior studies. The US grids are California (CISO), Pennsylvania (PJM), Texas (ERCOT), New England (ISO-NE), Washington (BPAT), Florida (FPL), and New York (NYISO). The European grids are Sweden (SE), Germany (DE), Poland (PL), Spain (ES), and the Netherlands (NL). The Australian grid is Queensland (AUS-QLD). Data come from the CarbonCast repository (Maji et al., 2022a) and include two years of hourly carbon intensity measurements from 2020 to 2021. Following prior work, we evaluate forecasting accuracy on the final six months of 2021 for fair comparison.
+
+Global Carbon Intensity Dataset. Electricity Maps recently released hourly carbon intensity data for 350 grids worldwide (Electricity Maps, 2025c). For global evaluation, we use data from 214 of these grids covering most major geographical areas, with the number of grids per area listed in Table 6. Each grid provides four years of hourly data from 2021 to 2024, split into training and testing sets with a 70–30 ratio.
+
+Uncertainty Quantification Dataset. We evaluate uncertainty quantification on the same 13 benchmark grids using the two-year datasets from CarbonCast. We provide prediction intervals for the last 6 months in each dataset.
+
+Imputation Dataset. We use 5 minute carbon intensity data from Electricity Maps (Electricity Maps, 2025c) covering 50 grids, 30 in the United States and 20 in Europe. Each dataset spans 2021 to 2024 and is split 70 to 30 for training and testing. To simulate missing data, 12.5% to 75% of each time series is randomly masked for reconstruction.
+
+5.2.Performance Metrics
+Forecasting. We use MAPE to assess forecasting accuracy. Lower values indicate better performance. In addition to the average MAPE over the test period, we report the 90th-percentile MAPE to capture tail forecasting errors of the models.
+
+Uncertainty Quantification. We assess the quality of prediction intervals using Coverage and Normalized Interval Width (NIW).
+
+Coverage measures the percentage of times the ground truth (
+y
+t
+) falls within the prediction intervals (
+[
+L
+t
+,
+U
+t
+]
+):
+
+(4)		
+Coverage (%)
+=
+100
+T
+​
+∑
+t
+=
+1
+T
+𝐈
+​
+[
+y
+t
+∈
+[
+L
+t
+,
+U
+t
+]
+]
+,
+where 
+𝐈
+​
+[
+⋅
+]
+ denotes the indicator function.
+
+NIW at each time step is the interval width relative to the ground truth: 
+NIW
+t
+=
+U
+t
+−
+L
+t
+y
+t
+. Lower NIW indicates a narrower interval.
+
+Imputation. We use Root Mean Square Error (RMSE) on normalized time series to assess imputation accuracy.
+
+Baselines	CarbonX Zero-Shot Mode
+EWMA (Shenoy and Hanafy, 2024)	AutoARIMA (Seabold and Perktold, 2010)	CarbonCast (Maji et al., 2022a)1	EnsembleCI (Yan et al., 2025)1	MOMENT (Goswami et al., 2024)	Chronos (Ansari et al., 2024)	TimesFM (Das et al., 2024)	Sundial (Liu et al., 2025)	Time-MoE (Shi et al., 2024)
+Mean	90th	Mean	90th	Mean	90th	Mean	90th	Mean	90th	Mean	90th	Mean	90th	Mean	90th	Mean	90th
+CISO	12.93	28.15	28.83	56.01	11.45	22.21	9.17	18.38	23.38	48.49	24.80	50.04	24.31	48.41	10.79	17.25	11.84	24.79
+PJM	6.18	13.01	10.24	17.82	5.29	8.74	3.41	7.17	6.97	14.73	9.40	17.83	9.36	17.80	4.68	7.98	4.56	9.86
+ERCOT	17.33	37.45	29.55	53.21	11.14	21.44	10.61	24.69	17.14	37.15	18.59	33.62	18.40	32.69	14.64	25.46	15.45	35.82
+ISO-NE	7.40	15.91	11.04	20.67	6.41	10.96	5.74	12.98	8.35	17.54	12.20	22.17	12.27	22.24	6.89	11.52	6.79	14.99
+BPAT	10.08	20.90	19.33	32.79	11.22	18.23	10.95	22.42	12.47	25.53	24.17	42.16	24.32	42.30	9.92	14.24	10.01	20.43
+FPL	3.28	7.35	6.66	12.35	3.15	5.24	2.78	6.02	4.96	9.91	6.93	13.72	6.85	13.64	2.86	5.31	2.85	6.39
+NYISO	8.81	18.08	13.83	25.28	9.09	28.09	8.75	30.85	9.91	21.01	17.45	35.01	17.64	35.33	8.59	16.19	7.86	15.97
+SE	7.43	16.46	14.09	26.32	5.78	9.47	5.42	11.63	7.07	15.84	8.83	17.71	8.74	17.69	6.22	10.37	6.37	13.62
+DE	26.25	57.89	42.39	95.86	11.72	20.90	12.09	26.82	27.05	58.59	26.20	41.66	25.71	40.67	21.06	40.59	20.46	43.23
+PL	8.43	19.27	16.26	33.22	4.37	7.49	4.23	9.34	8.72	19.65	7.79	14.78	7.62	13.68	6.48	10.91	6.42	13.26
+ES	25.95	52.46	34.69	69.24	16.65	30.07	16.96	35.39	25.53	53.99	23.75	43.53	23.54	42.98	20.42	34.99	19.68	39.73
+NL	11.30	24.74	22.43	40.87	8.25	13.43	6.96	13.72	10.49	23.42	10.48	18.12	10.36	17.92	8.69	15.51	8.78	17.69
+AUS-QLD	4.04	9.67	23.79	46.67	4.46	6.72	3.72	8.99	15.47	33.56	15.76	39.42	15.46	39.30	3.48	4.69	3.56	8.49
+Average	11.49	24.72	21.00	40.80	8.38	15.61	7.75	17.57	13.63	29.18	15.87	29.98	15.73	29.59	9.59	16.54	9.59	20.25
+(1) CarbonCast and EnsembleCI require energy mix information and train grid-specific models to forecast carbon intensity.
+Table 3.4-day MAPE comparison (best results in bold). TSFMs provide competitive performance in some grids. Sundial (with a 30-day lookback) achieves the highest accuracy in the zero-shot mode, having 9.59% mean and 16.54% tail forecasting MAPE, compared to state-of-the-art mean MAPE of 7.75% (EnsembleCI) and tail MAPE of 15.61% (CarbonCast).
+5.3.Baselines
+Forecasting. We compare CarbonX with two state-of-the-art tools: CarbonCast (Maji et al., 2022a) and EnsembleCI (Yan et al., 2025). While EnsembleCI performs better than CarbonCast on average, CarbonCast has better tail forecasting accuracy (see Table 2). Hence, we include both tools as baselines. We also implement two moving average-based statistical baselines: EWMA (Shenoy and Hanafy, 2024) and AutoARIMA (Seabold and Perktold, 2010).
+
+We could not compare CarbonX with services such as Electricity Maps (Electricity Maps, 2025a) and Watttime (Watttime, 2025), which also provide worldwide forecasts, because their forecasts are proprietary and not public.
+
+Uncertainty Quantification. Li et al. (Li et al., 2024) provide prediction intervals for carbon intensity forecasts. While both our and their works provide the desired coverage, comparing NIW directly is non-trivial, as the interval width depends on the accuracy of the underlying point-value forecasts. Since Li et al. extends CarbonCast, which has a higher accuracy than CarbonX, our NIW will potentially be higher. We keep this comparison as future work.
+
+Importantly, we note that CarbonX’s modular architecture enables seamless integration of any state-of-the-art methods that can provide narrower intervals with the available CarbonX forecasts.
+
+Imputation. We compare CarbonX’s zero-shot and fine-tuned imputation performance against three statistical baselines: (1) Naive interpolation, which fills a missing value using the same hour from the nearest available day (in the past or future), (2) Linear interpolation, and (3) Cubic spline interpolation. Linear and cubic spline interpolation are standard statistical baselines that perform well in estimating missing data in time series. The naive approach simulates a realistic operational heuristic often used by practitioners.
+
+5.4.Fine-Tuning Strategies
+During forecasting, we fine-tune the TSFMs for one epoch for both grid- and domain-specific strategies. During imputation, we employ both light-weight and full fine-tuning for five epochs. For imputation, we only opt for grid-specific fine-tuning.
+
+CarbonX Grid-Specific Fine-Tuning
+MOMENT (Goswami et al., 2024)	Chronos (Ansari et al., 2024)	TimesFM (Das et al., 2024)	Time-MoE (Shi et al., 2024)
+Mean	90th	Mean	90th	Mean	90th	Mean	90th
+CISO	12.27	25.07	23.51	43.57	12.47	26.79	12.03	25.54
+PJM	5.24	10.84	9.50	17.60	5.21	11.46	5.20	11.32
+ERCOT	16.06	33.66	18.90	35.64	15.59	33.10	17.35	37.50
+ISO-NE	6.99	14.26	12.69	22.17	7.23	15.43	7.21	15.02
+BPAT	10.45	21.68	24.85	41.91	10.45	21.67	10.05	20.61
+FPL	3.43	7.00	7.98	14.23	3.03	6.44	3.30	7.14
+NYISO	7.95	15.77	16.50	38.02	10.14	24.35	8.39	17.24
+SE	6.59	14.85	10.31	18.53	6.19	14.12	7.07	15.31
+DE	22.07	41.45	26.27	42.64	22.21	47.46	23.48	53.72
+PL	6.92	13.74	8.35	15.73	7.01	15.21	7.55	17.29
+ES	20.85	42.12	24.99	44.14	22.84	46.84	23.45	45.49
+NL	9.38	18.16	11.47	18.63	8.96	19.59	9.88	20.45
+AUS-QLD	4.83	11.82	16.80	38.61	3.69	8.53	3.72	8.73
+Average	10.23	20.80	16.32	30.11	10.39	22.38	10.66	22.72
+Table 4.CarbonX accuracy (MAPE %) after grid-specific fine-tuning (Sundial is excluded from evaluation).
+CarbonX Domain-Specific Fine-Tuning
+Chronos (Ansari et al., 2024)	Time-MoE (Shi et al., 2024)
+Mean	90th	Mean	90th
+CISO	22.39	40.64	12.41	27.07
+PJM	9.04	17.28	4.97	10.87
+ERCOT	19.11	38.57	16.57	35.66
+ISO-NE	11.70	21.45	7.09	15.50
+BPAT	24.61	41.67	9.83	20.29
+FPL	7.15	13.80	3.02	6.66
+NYISO	16.20	38.35	8.98	18.56
+SE	9.24	18.11	6.71	14.78
+DE	25.80	40.76	23.20	49.65
+PL	7.70	15.14	7.25	15.58
+ES	24.15	43.84	23.42	45.80
+NL	10.41	18.16	9.50	19.79
+AUS-QLD	16.23	39.71	3.98	9.30
+Average	15.67	29.80	10.53	22.27
+Table 5.CarbonX accuracy (MAPE %) after domain-specific fine-tuning (only Chronos and Time-MoE are evaluated).
+6.Forecasting Task Evaluation
+We evaluate CarbonX across multiple dimensions. First, we compare its accuracy on 13 benchmark grids in both zero-shot and fine-tuned modes and show that CarbonX matches the tail performance of the current state-of-the-art. Next, we show that its forecasts remain reliable for horizons up to 21 days. We then demonstrate that CarbonX can provide accurate forecasts globally, by evaluating across 214 grids worldwide. Finally, we assess uncertainty quantification, confirming well-calibrated prediction intervals.
+
+6.1.Comparison against Baselines
+Tables 3, 4, and 5 present detailed forecasting accuracy of CarbonX across 13 grids in both zero-shot and fine-tuned modes.
+
+6.1.1.Zero-Shot TSFM Performance.
+Statistical models provide only moderate accuracy. EWMA achieves an average mean MAPE of 11.49%, outperforming AutoARIMA at 21.00%, and performs well on stable grids such as FPL, where it records 3.28% mean MAPE but deteriorates on volatile grids such as DE, where it reaches 26.25%. CarbonCast and EnsembleCI remain the strongest domain-specific models, leveraging energy mix features and grid-specific architecture and training to achieve mean and 90th-percentile MAPE of 8.38% and 15.61%, and 7.75% and 17.57%, respectively.
+
+Among the pre-trained TSFMs, Sundial with a 30-day lookback leads with an average mean and 90th-percentile MAPE of 9.59% and 16.54%. Sundial is strong in stable grids such as PJM and FPL, where it reaches single-digit MAPE, and it maintains robustness in higher variance grids such as DE and ES, even outperforming EnsembleCI on tail forecasting accuracy. Time-MoE delivers similar zero-shot accuracy as Sundial, having a similar mean MAPE (9.59%) but slightly higher tail errors (20.25%). MOMENT follows with 13.63% mean and 29.18% 90th-percentile MAPE, benefiting from strong performance on North American grids but dropping sharply on European ones. Chronos records 15.87% mean and 29.98% 90th-percentile MAPE, and TimesFM records 15.73% mean and 29.59% 90th-percentile MAPE, reflecting weaker adaptation to the heterogeneous temporal dynamics of carbon intensity data.
+
+We also evaluate other variants of Sundial and Time-MoE to assess the effects of model size on accuracy. Accuracy increases with model size for most grids, showing that larger models can typically capture the patterns better. However, in some grids, smaller models perform better — especially for Time-MoE. The results are available in Appendix B, Table 12. These results underscore the need for more in-depth analysis of model size, architecture, and performance.
+
+Summary. CarbonX can deliver competitive accuracy across diverse grids using just one model, only historical carbon intensity data, and no grid-specific modifications. This highlights the strength and versatility of CarbonX, making it a strong candidate for global carbon intensity forecasting. Among the TSFMs, Sundial achieves the highest accuracy, providing robust tail performance that outperforms EnsembleCI.
+
+CarbonX	CarbonX
+(w/ Sundial)	(w/ Time-MoE)
+Area	# of grids	Mean	90th	Mean	90th
+Africa	28	4.72	7.96	4.76	10.79
+Asia	39	3.87	6.91	4.35	9.28
+Central America	9	16.78	33.05	16.39	39.18
+Europe	39	21.44	39.10	22.92	52.33
+North America	73	16.10	28.86	16.90	35.36
+Oceania	11	73.57	153.59	82.02	244.53
+South America	15	8.64	15.07	10.70	25.45
+Total/Average	214	15.82	29.61	17.01	33.37
+Table 6.Zero-shot forecasting accuracy (MAPE %) of CarbonX aggregated over 214 grids worldwide. With Sundial, CarbonX has an average MAPE of 15.82%.
+6.1.2.Grid-Specific Fine-Tuning
+To enhance performance beyond the zero-shot setting, we evaluate grid-specific fine-tuning of the TSFMs. Table 4 reports the 4-day MAPE when each model is trained on the historical carbon intensity of a single grid and tested only on that grid’s hold-out data. Sundial is excluded because it currently lacks a fine-tuning interface.
+
+Fine-tuning yields clear gains for some models. MOMENT’s average mean MAPE drops from 13.63% to 10.23%, and its 90th-percentile error falls from 29.18% to 20.80%. TimesFM improves in a similar way, with mean MAPE decreasing from 15.73% to 10.39% and the 90th-percentile from 29.59% to 22.38%. These improvements arise because their architectures can adapt with only the final linear layer retrained on grid-specific data, allowing the shared representations to specialize without overfitting.
+
+In contrast, Chronos and Time-MoE show little benefit and even slight degradation on average. Chronos rises from 15.87% to 16.32% mean MAPE, while Time-MoE moves from 9.59% to 10.66%. Chronos relies on a fixed, discrete vocabulary to encode time-series values, which may be difficult to refine with limited regional data, leading to overfitting or unstable token representations. Time-MoE employs a mixture-of-experts routing mechanism that likely requires larger-scale or more carefully balanced updates; small per-grid datasets may disrupt expert activation and reduce overall accuracy.
+
+Summary. Grid-specific fine-tuning enables some TSFMs, such as MOMENT and TimesFM, to close the accuracy gap with CarbonCast and EnsembleCI. Interestingly, zero-shot Sundial still outperforms other TSFMs even after grid-specific fine-tuning.
+
+6.1.3.Domain-Specific Fine-Tuning
+We train single instances of Chronos and Time-MoE on the combined training data from 214 grids and evaluate their accuracy on the 13 benchmark grids. Table 5 presents the mean and tail MAPE of both models.
+
+Chronos shows marginal improvements on average, with mean MAPE moving from 15.87% in the zero-shot mode to 15.67%. However, the tail MAPE shifts from 29.18% to 29.80%. The larger, more heterogeneous dataset offers small gains on average but introduces variability that limits gains in the tail. On the other hand, although Time-MoE’s accuracy improves over its grid-specific version, it still falls behind its zero-shot accuracy. The mean (resp. tail) MAPE is 10.53% (resp. 22.27%), which is lower than 10.66% (resp. 22.72%) achieved with grid-specific fine-tuning, but is higher than 9.59% (resp. 20.25%) achieved in the zero-shot mode.
+
+One reason for such behaviour can be that since we are doing full fine-tuning and the size of the new dataset is negligible compared to the pre-training dataset, the model weights are updated insignificantly. Thus, although our preliminary results show promise with this approach, more careful analysis and design are required for conclusive results.
+
+Summary. Domain-specific fine-tuning provides marginal improvements over grid-specific fine-tuning. However, more detailed analysis is required to fully realize the potential of this approach.
+
+Refer to caption
+Figure 4.MAPE distribution of CarbonX across 214 grids using Sundial as the TSFM. 166 grids have ¡ 20% MAPE on average.
+6.2.Worldwide Evaluation
+Next, we evaluate CarbonX globally across 214 grids spanning every continent except Antarctica. We employ the most generalized setting, where one model forecasts all the grids in zero-shot mode. Since Sundial and Time-MoE are the best-performing models in the zero-shot mode across the 13 benchmark grids, we evaluate the accuracy by plugging both these TSFMs into our task module.
+
+Table 6 summarizes the number of grids evaluated in each geographical area and the forecasting accuracy of both TSFMs in each area. We report both the average forecasting accuracy (mean MAPE) and the tail forecasting accuracy (90th percentile MAPE). Sundial delivers strong performance globally, achieving an average MAPE of 15.82% and a tail forecasting accuracy of 29.61% across the 214 grids. Time-MoE follows Sundial performance closely, with an average accuracy of 17.01% and a tail accuracy of 33.37%.
+
+Figure 4 and Table 6 further break down the overall forecasting accuracy of CarbonX using Sundial as the TSFM by showing the worldwide error distribution. Most grids have a low forecasting error, with 166 out of 214 grids having a mean MAPE below 20%. Grids in Asia and Africa, which have a high percentage of fossil fuels and thus more stable carbon intensity profiles, have highly accurate forecasts, with an average MAPE of less than 5%. On the other hand, grids in the Americas and Europe have more renewables, leading to greater temporal volatility and increasing the forecasting errors. However, CarbonX still achieves high accuracy, with 96-hour forecasting errors being below 20% in most of the grids. The only exception is Oceania, where CarbonX has a very high forecasting error. This high error rate is primarily due to three grids in Tasmania and its neighboring islands, where frequent large swings in renewable share make the grids highly volatile and, hence, forecasting significantly difficult. If these three grids are excluded, the mean and tail MAPE in Oceania decrease to 20.69% and 36.20%, respectively, similar to other geographical areas. Consequently, the global mean and tail MAPE across 211 grids also decrease to 12.99% and 23.40%, respectively, further underscoring CarbonX’s strength.
+
+We observe similar accuracy characteristics and regional patterns when using Time-MoE as the TSFM in CarbonX.
+
+Summary. CarbonX delivers strong global zero-shot forecasting performance using only historical carbon intensity data: 77.5% of the evaluated 214 grids achieve mean MAPE under 20%. Notably, in more than 35% of these grids, electricity mix data is not available, making prior works infeasible and CarbonX the only feasible option. Even if such data were available, prior works would have required hundreds of models to provide global coverage, while CarbonX can provide that using only one generalized model. Thus, CarbonX can be used as a tool globally without additional modifications, making it highly practical for computational decarbonization.
+
+ 	
+D1
+D4
+Drop4
+D21
+Drop21
+CISO
+ 	
+8.03
+10.96
+2.93
+12.38
+4.35
+PJM
+ 	
+3.12
+4.76
+1.64
+5.89
+2.77
+ERCOT
+ 	
+11.63
+15.00
+3.37
+15.84
+4.21
+ISO-NE
+ 	
+4.91
+6.99
+2.08
+9.90
+4.99
+BPAT
+ 	
+6.93
+9.43
+2.50
+12.97
+6.04
+FPL
+ 	
+2.09
+2.97
+0.88
+4.19
+2.10
+NYISO
+ 	
+5.18
+8.96
+3.78
+15.46
+10.28
+SE
+ 	
+4.26
+6.28
+2.02
+7.91
+3.65
+DE
+ 	
+14.83
+21.15
+6.32
+24.79
+9.96
+PL
+ 	
+4.31
+6.58
+2.27
+7.34
+3.03
+ES
+ 	
+11.84
+21.47
+9.63
+23.87
+12.03
+NL
+ 	
+6.06
+8.88
+2.82
+9.98
+3.92
+AUS-QLD
+ 	
+2.81
+3.59
+0.78
+4.05
+1.24
+Average
+ 	
+6.62
+9.77
+3.16
+11.89
+5.27
+Table 7.Extended forecasting accuracy (MAPE) and degradation (absolute difference in MAPE) compared to D1 forecasts. Sundial with a 15-day lookback provides the best results.
+6.3.Extended Forecasting
+TSFMs have shown strong long-horizon forecasting across various domains. We therefore hypothesize that TSFMs can forecast carbon intensity accurately for up to several weeks. In contrast, existing carbon forecasting tools are typically designed and evaluated for horizons up to 96 hours. Their accuracy beyond this horizon is expected to decrease substantially due to their limited model capacity. Further, these tools rely on auxiliary information such as weather forecasts, which are only available for up to 16 days in many regions (National Weather Service, 2025). This creates a practical bottleneck for existing tools to provide extended carbon intensity forecasts.
+
+In this section, we assess CarbonX’s extended forecasting capabilities by evaluating its zero-shot accuracy for up to 3 weeks (21 days). Since Sundial achieves the highest accuracy while providing zero-shot 4-day forecasts, we use Sundial as the TSFM for this experiment. We vary the lookback window from 1 to 30 days in the past, and extend the forecasting horizon from 1 to 21 days. While a 30-day lookback achieves the highest accuracy for 4-day forecasts, a 15-day lookback yields the lowest accuracy degradation for 21-day forecasts across the grids. We posit that this is because while shorter lookbacks cannot capture the longer temporal patterns, longer lookbacks may incorporate noise or infrequent events when forecasting longer horizons. A 15-day lookback achieves the best balance, capturing the patterns without amplifying noise. More detailed ablations of lookback length and forecast horizon are provided in Appendix C, Table 11.
+
+Table 7 summarizes the results across the 13 benchmark grids. Sundial’s has a high day-ahead accuracy, with an average MAPE of 6.62%. The error growth over time is modest: the 4-day horizon averages 9.77% MAPE, only 3.16% points above day-ahead, and the 21-day horizon averages 11.89%, just 5.27 points higher. This limited increase underscores CarbonX ’s ability to maintain reliable performance even for longer forecasts.
+
+The degradation depends on the carbon intensity volatility. Stable grids (e.g., PJM, FPL) show exceptional accuracy, having less than 3% degradation and MAPE below 6% even at 21 days. More volatile grids (e.g., Germany (DE), Spain (ES)) show larger degradation: DE rising from 14.83% to 24.79% and ES from 11.84% to 23.87%. Still, the degradation remains manageable over three weeks. Notably, most of the degradation occurs in the first four days; then the degradation rate decreases. For example, in DE, accuracy decreases from 14.83% on day one to 21.15% by day 4. However, the accuracy only degrades by 3.64% over the remaining forecasting horizon.
+
+Coverage (%)	
+MAPE (%)	D1	D2	D3	D4	Overall	NIW (%)
+CISO	10.79	95.6	95.9	96.7	96.9	96.3	68.5
+PJM	4.68	96.4	96.1	96.6	96.4	96.4	29.0
+ERCO	14.64	95.6	94.7	95.1	94.6	95.0	67.7
+ISO-NE	6.89	97.6	97.3	96.5	96.0	96.9	41.6
+BPAT	9.92	96.9	95.9	95.8	95.7	96.1	53.1
+FPL	2.86	96.0	95.3	95.2	94.5	95.3	21.6
+NYISO	8.59	97.4	96.7	95.7	94.7	96.1	70.1
+SE	6.22	96.5	95.6	94.7	94.3	95.3	36.0
+DE	21.06	96.7	97.7	97.2	95.3	96.7	103.6
+PL	6.48	97.5	96.6	96.4	96.0	96.6	36.9
+ES	20.42	96.5	94.3	94.6	93.7	94.8	96.3
+NL	8.69	97.4	97.4	97.3	96.9	97.3	49.6
+AUS-QLD	3.48	97.6	97.5	98.8	98.5	98.1	30.8
+Average	9.59	96.7	96.2	96.2	95.6	96.2	54.2
+Table 8.Uncertainty quantification: CarbonX provides more than the desired 95% coverage with moderately wide intervals.
+Summary. CarbonX delivers strong zero-shot accuracy with minimal extended-horizon degradation (5.27% accuracy drop across 21 days). Given an appropriate historical context, CarbonX provides reliable forecasts for applications that require horizons well beyond conventional day-ahead planning.
+
+6.4.Uncertainty Quantification
+We now evaluate how CarbonX quantifies uncertainty associated with the carbon intensity forecasts using the lightweight conformal layer. Figure 5 shows the 96-hour prediction intervals produced by CarbonX for the California (CISO) grid. The prediction intervals are constructed from the most recent historical residuals, which ensures that the intervals closely follow the ground truth trajectory and provide the desired coverage (95%). This demonstrates the robustness of the conformal layer and the reliability that CarbonX offers to downstream applications that may make optimization decisions based on these forecasts and intervals.
+
+Table 8 reports the empirical Coverage and Normalized Interval Width (NIW) results across the 13 benchmark grids. CarbonX provides more than 95% coverage — both daywise and over the whole 96-hour horizon — when averaged across the grids. At an individual grid level, CarbonX provides an average coverage above 95% in all grids except Spain (ES), where the coverage dips slightly below 95% due to increased uncertainty in forecasting beyond the 24-hour horizon, as evident from the Table.
+
+The NIW varies from 21.6% in Florida (FPL) to 103.6% in Germany (DE), with an average of 54.2% across the grids. In general, NIW has a positive correlation with the forecast errors: grids with less accurate point forecasts tend to have wider prediction intervals. This is expected behaviour, as greater uncertainty and hence residual variance require wider intervals to maintain coverage guarantees.
+
+An average NIW of 54.2 signifies that the interval width is slightly more than half of the magnitude of the ground truth values on average. We note that the prediction intervals are considerably wide in certain grids (e.g., Germany). Decreasing the intervals while maintaining coverage may require more advanced conformal prediction techniques (Xu and Xie, 2023) than our current approach. Notably, our modular design allows seamless integration of such techniques with minimal changes, and we keep integrating advanced conformal prediction techniques as future work.
+
+Summary. CarbonX’s conformal layer effectively quantifies forecast uncertainty by producing adaptive, well-calibrated prediction intervals that provide the desired 95% coverage while maintaining 54.2% NIW. These results enable CarbonX to be a practical tool with reliable and robust forecasts for downstream applications that require carbon-aware decision-making under uncertainty.
+
+Refer to caption
+Figure 5.CarbonX forecasts and prediction intervals during a 96-hour forecasting period in the CISO grid. The intervals provide desired coverage around the ground truth.
+Refer to caption
+(a)Zero-shot (ERCOT).
+Refer to caption
+(b)Fine-tuned (ERCOT).
+Figure 6.CarbonX provides good estimates of missing data.
+7.Imputation Task Evaluation
+Finally, we evaluate carbon intensity imputation by masking random fixed-length patches of the data to simulate scenarios where some of the data is missing. A masking percentage of 50% means that we simulate a scenario where half of the data is missing. We vary this masking percentage from 12.5% to 75% during our experiments, and evaluate for 50 grids (30 in the US and 20 in Europe).
+
+Figure 6 visualizes CarbonX’s imputation performance for the Texas grid (ERCOT), both in zero-shot and fine-tuned modes. The blue segments indicate the ground truth, with gaps denoting missing data. CarbonX estimates follow the ground truth in both modes, with fine-tuned estimates being more accurate.
+
+Table 9 details the imputation accuracy of CarbonX in different modes and compares CarbonX against three statistical baselines. Since we average the RMSE across multiple grids that have different carbon intensity magnitudes, we first normalize the values for fair comparison. The naive and cubic spline baselines perform modestly, with RMSE between 0.83 and 0.94 across the masking percentages. Zero-shot CarbonX is substantially better, having 0.18 RMSE (resp. 0.52) with 12.5% (resp. 75%) missing data. With lightweight fine-tuning, the accuracy improves further: RMSE reduces to 0.41 for 75% missing data. Interestingly, we observed that the linear interpolation method performs better in terms of RMSE, due to occasional large estimate deviation in CarbonX. However, the linear method connects endpoints with straight lines and can miss temporal patterns. Thus, in pattern-sensitive applications, lightly fine-tuned CarbonX may be preferable over linear interpolation.
+
+To further improve the accuracy, we also fully fine-tune CarbonX per grid. This mode outperforms all baselines, achieving an RMSE of 0.07 (resp. 0.24) with a 12.5% (resp. 75%) masking percentage, a 1.2—3.9
+×
+ improvement. We note that full fine-tuning yields grid-specific models, and hence, may be challenging to deploy at scale; however, we report the values so that users can decide the mode per their requirements.
+
+Summary. CarbonX provides moderate to high imputation accuracy for missing data. While linear interpolation can provide better RMSE than lightweight fine-tuning, CarbonX preserves the patterns better on average. Fully fine-tuned version achieves the best results overall, outperforming all baselines by 1.2—3.9
+×
+.
+
+ 	
+12.5%
+25%
+37.5%
+50%
+62.5%
+75%
+FT (full)
+ 	
+0.07
+0.08
+0.11
+0.14
+0.18
+0.24
+FT (head)
+ 	
+0.19
+0.21
+0.24
+0.28
+0.34
+0.41
+ZS
+ 	
+0.18
+0.23
+0.30
+0.36
+0.44
+0.52
+Naive
+ 	
+0.83
+0.85
+0.86
+0.89
+0.91
+0.94
+Cubic-Spline
+ 	
+0.86
+0.86
+0.86
+0.86
+0.87
+0.87
+Linear
+ 	
+0.13
+0.14
+0.15
+0.17
+0.21
+0.29
+Table 9.Normalized imputation RMSE for different methods at various masking percentages.
+8.Conclusion
+We present CarbonX, an open-sourced tool that leverages the versatility and strong performance of TSFMs to perform carbon intensity forecasting and imputation globally. CarbonX achieves strong zero-shot performance across 214 grids globally using only historical carbon data, with a mean MAPE of 15.62%. It supports forecasting up to 21 days, provides well-calibrated prediction intervals with desired coverage, and performs accurate imputation, making it a practical and easy-to-use tool for carbon-aware applications. We release code and datasets to foster future sustainability research.

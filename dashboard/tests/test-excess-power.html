@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excess Power Widget Test</title>
+    <link rel="stylesheet" href="public/excess-power.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 40px;
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <h1>⚡ Excess Power Widget Test</h1>
+
+    <div class="test-section">
+        <div class="test-title">Test 1: Schedule Now (High Curtailment)</div>
+        <div id="test1"></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Test 2: Good Time (Medium Curtailment)</div>
+        <div id="test2"></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Test 3: Defer (No Curtailment)</div>
+        <div id="test3"></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Test 4: Feature Disabled</div>
+        <div id="test4"></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Test 5: Error State</div>
+        <div id="test5"></div>
+    </div>
+
+    <script>
+        // Mock API config
+        const API_CONFIG = {
+            baseUrl: 'http://localhost:3000'
+        };
+
+        // Mock data for testing
+        const mockData = {
+            scheduleNow: {
+                timestamp: new Date().toISOString(),
+                region: 'eu-west-2',
+                excess_renewable_mw: 1250.5,
+                excess_total_mw: 1250.5,
+                curtailment_percentage: 12.3,
+                available_capacity_mw: 2500.0,
+                recommendation: 'SCHEDULE_NOW',
+                confidence: 'HIGH',
+                reasoning: '12.3% renewable curtailment detected. 1250 MW excess power available.',
+                data_source: 'electricitymaps'
+            },
+            goodTime: {
+                timestamp: new Date().toISOString(),
+                region: 'eu-west-2',
+                excess_renewable_mw: 450.0,
+                excess_total_mw: 450.0,
+                curtailment_percentage: 7.5,
+                available_capacity_mw: 1200.0,
+                recommendation: 'SCHEDULE_PREFERRED',
+                confidence: 'MEDIUM',
+                reasoning: '7.5% curtailment. Good opportunity for carbon reduction.',
+                data_source: 'estimated',
+                note: 'Estimated from carbon intensity (280 gCO2/kWh)',
+                carbon_intensity: 280
+            },
+            defer: {
+                timestamp: new Date().toISOString(),
+                region: 'eu-west-2',
+                excess_renewable_mw: 0,
+                excess_total_mw: 0,
+                curtailment_percentage: 0.5,
+                available_capacity_mw: 500.0,
+                recommendation: 'DEFER',
+                confidence: 'HIGH',
+                reasoning: 'No significant excess renewable power. Consider scheduling during lower-carbon period.',
+                data_source: 'estimated'
+            },
+            disabled: {
+                error: 'Feature not enabled',
+                disabled: true
+            },
+            error: {
+                error: 'Connection timeout'
+            }
+        };
+    </script>
+
+    <script src="public/excess-power.js"></script>
+
+    <script>
+        // Override fetch for testing
+        const originalFetch = window.fetch;
+        window.fetch = function(url) {
+            console.log('Mock fetch:', url);
+            
+            // Return mock data based on test
+            if (url.includes('test1')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve(mockData.scheduleNow)
+                });
+            } else if (url.includes('test2')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve(mockData.goodTime)
+                });
+            } else if (url.includes('test3')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve(mockData.defer)
+                });
+            } else if (url.includes('test4')) {
+                return Promise.resolve({
+                    ok: false,
+                    status: 403,
+                    json: () => Promise.resolve(mockData.disabled)
+                });
+            } else {
+                return Promise.reject(new Error('Connection timeout'));
+            }
+        };
+
+        // Render test widgets
+        document.addEventListener('DOMContentLoaded', function() {
+            // Test 1: Schedule Now
+            const widget1 = new ExcessPowerWidget();
+            widget1.apiBaseUrl = 'http://test1';
+            widget1.render('test1', 'eu-west-2');
+
+            // Test 2: Good Time
+            const widget2 = new ExcessPowerWidget();
+            widget2.apiBaseUrl = 'http://test2';
+            widget2.render('test2', 'eu-west-2');
+
+            // Test 3: Defer
+            const widget3 = new ExcessPowerWidget();
+            widget3.apiBaseUrl = 'http://test3';
+            widget3.render('test3', 'eu-west-2');
+
+            // Test 4: Disabled
+            const widget4 = new ExcessPowerWidget();
+            widget4.apiBaseUrl = 'http://test4';
+            widget4.render('test4', 'eu-west-2');
+
+            // Test 5: Error
+            const widget5 = new ExcessPowerWidget();
+            widget5.apiBaseUrl = 'http://test5';
+            widget5.render('test5', 'eu-west-2');
+        });
+    </script>
+</body>
+</html>
