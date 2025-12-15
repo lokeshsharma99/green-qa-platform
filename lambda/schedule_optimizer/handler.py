@@ -387,6 +387,9 @@ def _trigger_pipeline_for_recommendation(
     """
     Helper to trigger pipeline based on recommendation.
     Adds pipeline_trigger_result to the recommendation.
+    
+    For RELOCATE recommendations, uses the alternative_region (optimal region)
+    instead of the original region to achieve carbon savings.
     """
     if not PIPELINE_TRIGGER_AVAILABLE:
         recommendation.pipeline_trigger_result = {
@@ -396,9 +399,15 @@ def _trigger_pipeline_for_recommendation(
         return recommendation
     
     try:
+        # For RELOCATE, use the alternative (optimal) region for triggering
+        target_region = region
+        if recommendation.recommendation == RecommendationType.RELOCATE and recommendation.alternative_region:
+            target_region = recommendation.alternative_region
+            logger.info(f"RELOCATE: Using optimal region {target_region} instead of {region}")
+        
         trigger_result = execute_pipeline_action(
             recommendation=recommendation.recommendation.value,
-            region=region,
+            region=target_region,
             workload_type=workload_type,
             optimal_window_start=recommendation.optimal_window.start_time if recommendation.optimal_window else None,
             carbon_intensity=recommendation.current_intensity,
