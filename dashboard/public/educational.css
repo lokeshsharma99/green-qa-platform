@@ -1,0 +1,791 @@
+/**
+ * Educational Features Styles
+ * Beginner-friendly tooltips, onboarding tour, and learning elements
+ */
+
+/* ============================================
+   Help Icons
+   ============================================ */
+
+.edu-help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    vertical-align: middle;
+}
+
+.edu-help-icon:hover {
+    color: #3b82f6;
+    background: #eff6ff;
+    border-color: #3b82f6;
+    transform: scale(1.1);
+}
+
+/* ============================================
+   Educational Tooltip
+   ============================================ */
+
+.edu-tooltip {
+    position: fixed;
+    width: 320px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.2s ease;
+}
+
+.edu-tooltip.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.edu-tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.edu-tooltip-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.edu-tooltip-close {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 6px;
+    font-size: 18px;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.edu-tooltip-close:hover {
+    background: #e2e8f0;
+    color: #1f2937;
+}
+
+.edu-tooltip-content {
+    padding: 16px 20px 20px;
+}
+
+.edu-tooltip-short {
+    font-size: 14px;
+    font-weight: 500;
+    color: #3b82f6;
+    margin: 0 0 12px 0;
+    padding: 10px 14px;
+    background: #eff6ff;
+    border-radius: 8px;
+}
+
+.edu-tooltip-detailed {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #4b5563;
+    margin-bottom: 16px;
+    white-space: pre-line;
+}
+
+.edu-tooltip-learn-more {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #3b82f6;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.edu-tooltip-learn-more:hover {
+    color: #2563eb;
+    text-decoration: underline;
+}
+
+/* ============================================
+   Onboarding Tour
+   ============================================ */
+
+.tour-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9998;
+    animation: fadeIn 0.3s ease;
+}
+
+.tour-spotlight {
+    position: fixed;
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    transition: all 0.3s ease;
+    pointer-events: none;
+}
+
+.tour-dialog {
+    position: fixed;
+    width: 360px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    z-index: 10000;
+    animation: slideIn 0.3s ease;
+}
+
+.tour-dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.tour-step-indicator {
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+.tour-skip {
+    font-size: 13px;
+    color: #64748b;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.tour-skip:hover {
+    color: #1f2937;
+}
+
+.tour-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+    padding: 20px 20px 8px;
+}
+
+.tour-content {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #4b5563;
+    margin: 0;
+    padding: 0 20px 20px;
+}
+
+.tour-actions {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-top: 1px solid #f1f5f9;
+    background: #f8fafc;
+    border-radius: 0 0 16px 16px;
+}
+
+.tour-prev,
+.tour-next {
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tour-prev {
+    color: #64748b;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+}
+
+.tour-prev:hover {
+    background: #f1f5f9;
+    color: #1f2937;
+}
+
+.tour-next {
+    color: #ffffff;
+    background: #10b981;
+    border: none;
+}
+
+.tour-next:hover {
+    background: #059669;
+}
+
+/* ============================================
+   Quick Tips
+   ============================================ */
+
+.quick-tip-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1px solid #bbf7d0;
+    border-radius: 12px;
+    margin-bottom: 24px;
+}
+
+.tip-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.tip-text {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #166534;
+}
+
+.tip-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #15803d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+/* ============================================
+   Beginner Mode Toggle
+   ============================================ */
+
+.beginner-mode-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.beginner-mode-toggle:hover {
+    background: #f1f5f9;
+}
+
+.beginner-mode-toggle.active {
+    background: #eff6ff;
+    border-color: #3b82f6;
+}
+
+.beginner-mode-toggle .toggle-icon {
+    font-size: 16px;
+}
+
+.beginner-mode-toggle .toggle-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #4b5563;
+}
+
+/* ============================================
+   Glossary Panel
+   ============================================ */
+
+.glossary-panel {
+    position: fixed;
+    right: -400px;
+    top: 0;
+    bottom: 0;
+    width: 400px;
+    background: #ffffff;
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.1);
+    z-index: 9997;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+}
+
+.glossary-panel.open {
+    right: 0;
+}
+
+.glossary-header {
+    position: sticky;
+    top: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.glossary-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.glossary-close {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 8px;
+    font-size: 20px;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.glossary-close:hover {
+    background: #e2e8f0;
+    color: #1f2937;
+}
+
+.glossary-search {
+    padding: 16px 24px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.glossary-search input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.glossary-search input:focus {
+    border-color: #3b82f6;
+}
+
+.glossary-content {
+    padding: 16px 24px;
+}
+
+.glossary-item {
+    padding: 16px;
+    margin-bottom: 12px;
+    background: #f8fafc;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.glossary-item:hover {
+    background: #f1f5f9;
+}
+
+.glossary-item-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 4px;
+}
+
+.glossary-item-short {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+/* ============================================
+   Learning Progress
+   ============================================ */
+
+.learning-progress {
+    padding: 16px 20px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 24px;
+}
+
+.learning-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.learning-progress-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.learning-progress-percent {
+    font-size: 14px;
+    font-weight: 600;
+    color: #10b981;
+}
+
+.learning-progress-bar {
+    height: 8px;
+    background: #f1f5f9;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.learning-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #34d399);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.learning-badges {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.learning-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    background: #f1f5f9;
+    border-radius: 12px;
+    color: #64748b;
+}
+
+.learning-badge.earned {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.learning-badge .badge-icon {
+    font-size: 12px;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+
+@media (max-width: 768px) {
+    .edu-tooltip {
+        width: calc(100vw - 40px);
+        left: 20px !important;
+    }
+    
+    .tour-dialog {
+        width: calc(100vw - 40px);
+        left: 20px !important;
+    }
+    
+    .glossary-panel {
+        width: 100%;
+        right: -100%;
+    }
+}
+
+
+/* ============================================
+   Glossary Detail View
+   ============================================ */
+
+.glossary-detail {
+    padding: 0;
+}
+
+.glossary-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #3b82f6;
+    background: #eff6ff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.glossary-back:hover {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.glossary-detail-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 12px 0;
+}
+
+.glossary-detail-short {
+    font-size: 15px;
+    font-weight: 500;
+    color: #3b82f6;
+    margin: 0 0 16px 0;
+    padding: 12px 16px;
+    background: #eff6ff;
+    border-radius: 8px;
+}
+
+.glossary-detail-content {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #4b5563;
+    margin-bottom: 20px;
+    white-space: pre-line;
+}
+
+.glossary-learn-more {
+    display: inline-block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #3b82f6;
+    text-decoration: none;
+    padding: 10px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.glossary-learn-more:hover {
+    background: #eff6ff;
+    border-color: #3b82f6;
+}
+
+/* ============================================
+   Trend Chart Enhancements
+   ============================================ */
+
+.trend-chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.trend-chart-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.trend-chart-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.trend-filter-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.trend-pipeline-select {
+    padding: 6px 12px;
+    font-size: 13px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1f2937;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.trend-pipeline-select:hover {
+    border-color: #3b82f6;
+}
+
+.trend-pipeline-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* ============================================
+   Trend Chart Layout Improvements
+   ============================================ */
+
+.trend-chart {
+    width: 100%;
+    overflow-x: auto;
+}
+
+#trend-canvas {
+    width: 100%;
+    max-width: 1000px;
+    height: 300px;
+    display: block;
+    margin: 0 auto;
+}
+
+/* ============================================
+   Pagination Styles
+   ============================================ */
+
+.pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    margin-top: 16px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.pagination-info {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pagination-btn {
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #3b82f6;
+    color: #3b82f6;
+}
+
+.pagination-btn:disabled {
+    color: #9ca3af;
+    background: #f9fafb;
+    border-color: #f3f4f6;
+    cursor: not-allowed;
+}
+
+.pagination-pages {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pagination-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pagination-page:hover {
+    background: #f8fafc;
+    border-color: #3b82f6;
+    color: #3b82f6;
+}
+
+.pagination-page.active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: #ffffff;
+}
+
+.pagination-page.active:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+}
+
+.pagination-ellipsis {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+    color: #9ca3af;
+}

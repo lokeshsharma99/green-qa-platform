@@ -6,6 +6,7 @@
     <title>ZeroCarb — Cloud Computing, Zero Guilt</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="dark-mode.css">
+    <link rel="stylesheet" href="educational.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="dark-mode.js"></script>
     <link rel="icon" href="logo.png" type="image/png">
@@ -26,14 +27,11 @@
                         <img src="logo.png" alt="ZeroCarb" class="logo-image">
                     </a>
                     <nav class="header-nav">
-                        <a href="#dashboard" class="nav-link active" data-section="dashboard">Dashboard</a>
-                        <a href="#regions" class="nav-link" data-section="regions">Europe</a>
-                        <a href="#global-regions" class="nav-link" data-section="global-regions">Worldwide</a>
-                        <a href="#calculator" class="nav-link" data-section="calculator">Calculator</a>
+                        <a href="#stats-insights-section" class="nav-link active" data-section="stats-insights-section">Dashboard</a>
+                        <a href="#aws-regions" class="nav-link" data-section="aws-regions" onclick="switchRegionTab('europe')">Europe</a>
+                        <a href="#aws-regions" class="nav-link" data-section="aws-regions" onclick="switchRegionTab('worldwide')">Worldwide</a>
                         <a href="#history" class="nav-link" data-section="history">History</a>
-                        <a href="advanced.html" class="nav-link nav-link-external">Advanced</a>
-                        <a href="energy-profiling.html" class="nav-link nav-link-external">Energy Profiling</a>
-                        <a href="regression-tracking.html" class="nav-link nav-link-external">Regression Tracking</a>
+                        <a href="#calculator" class="nav-link" data-section="calculator">Calculator</a>
                     </nav>
                     <div class="header-meta">
                         <div class="status">
@@ -44,6 +42,11 @@
                             Sources: <span id="sources-list">Loading...</span>
                         </span>
                         <span class="text-xs text-grey">Updated <span id="last-updated-time">--:--</span></span>
+                        <button class="beginner-mode-toggle" id="beginner-mode-toggle" onclick="toggleBeginnerMode()" title="Toggle beginner-friendly explanations">
+                            <span class="toggle-icon">📚</span>
+                            <span class="toggle-label">Learn</span>
+                        </button>
+                        <button class="section-action" onclick="openGlossary()" title="Green Software Glossary">Glossary</button>
                         <button class="section-action" onclick="refreshData()">Refresh</button>
                     </div>
                 </div>
@@ -54,87 +57,199 @@
         <main class="main">
             <div class="container">
                 
-                <!-- Stats Row -->
-                <div class="stats-row" id="stats-section">
-                    <div class="stat-block">
-                        <div class="stat-label">Lowest Intensity</div>
-                        <div class="stat-value accent" id="lowest-intensity">--</div>
-                        <div class="stat-detail" id="lowest-region">--</div>
-                    </div>
-                    <div class="stat-block">
-                        <div class="stat-label">Europe Average</div>
-                        <div class="stat-value" id="avg-intensity">--</div>
-                        <div class="stat-detail" id="avg-regions">-- regions</div>
-                    </div>
-                    <div class="stat-block">
-                        <div class="stat-label">Recommendation</div>
-                        <div class="stat-value" id="recommendation">--</div>
-                        <div class="stat-detail" id="rec-reason">--</div>
-                    </div>
-                    <div class="stat-block">
-                        <div class="stat-label">Carbon Saved</div>
-                        <div class="stat-value accent" id="carbon-saved">0</div>
-                        <div class="stat-detail" id="tests-optimized">0 tests</div>
-                        <div class="stat-detail" id="carbon-equivalent" style="margin-top: 4px; font-size: 11px; color: var(--grey-600);">--</div>
+                <!-- Quick Tip for Beginners -->
+                <div class="quick-tip-container" id="quick-tip-container">
+                    <div class="tip-label">Quick Tip</div>
+                    <div id="quick-tip">
+                        <span class="tip-icon">💡</span>
+                        <span class="tip-text">Loading tip...</span>
                     </div>
                 </div>
-
-                <!-- Regions Section -->
-                <section class="section" id="regions">
-                    <div class="section-header">
-                        <span class="section-title">AWS Europe Regions</span>
-                        <span class="text-xs text-muted">gCO₂/kWh · Real-time carbon intensity</span>
-                    </div>
-                    <div class="region-grid" id="region-grid">
-                        <!-- Dynamically populated -->
+                
+                <!-- Impact Summary Section -->
+                <section class="section" id="impact-summary">
+                    <div class="impact-summary-card">
+                        <div class="impact-header">
+                            <h2 class="impact-title" data-edu="carbonAwareness">Impact Summary</h2>
+                        </div>
+                        <div class="impact-content">
+                            <div class="impact-main-stat">
+                                <span class="impact-text">
+                                    You've saved roughly <strong id="monthly-carbon-saved">Loading...</strong> this month by shifting tests.
+                                </span>
+                            </div>
+                            <div class="impact-equivalents">
+                                <div class="equivalent-item">
+                                    <span class="equivalent-text">Equivalent to driving <strong id="equivalent-driving">Loading...</strong> by car.</span>
+                                </div>
+                                <div class="equivalent-item">
+                                    <span class="equivalent-text">Would require <strong id="equivalent-trees">Loading...</strong> growing for a year to absorb.</span>
+                                </div>
+                            </div>
+                            <div class="impact-action">
+                                <a href="#history" class="impact-report-link">View Full Impact Report →</a>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
-                <!-- Generation Mix Section (UK Only) -->
-                <section class="section" id="generation-mix" style="display: none;">
+                <!-- Combined Stats & Insights Section -->
+                <section class="section" id="stats-insights-section">
                     <div class="section-header">
-                        <span class="section-title">UK Energy Mix — Real-time</span>
-                        <span class="text-xs text-muted">Power generation breakdown · Updated every 30 minutes</span>
+                        <span class="section-title" data-edu="carbonIntensity">Carbon Intelligence Dashboard</span>
+                        <span class="text-xs text-muted">Real-time insights and optimization recommendations</span>
                     </div>
-                    <div class="generation-mix-container">
-                        <div class="generation-mix-chart">
-                            <canvas id="generation-mix-canvas" width="220" height="220"></canvas>
+                    <div class="insights-grid insights-grid-2">
+                        <!-- Combined Region Optimization Tile -->
+                        <div class="insight-card insight-card-region-optimizer">
+                            <div class="region-optimizer-header">
+                                <div class="optimizer-title">
+                                    <h3 data-edu="awsRegions">Choose Your Region Wisely</h3>
+                                    <p>Different cloud regions have different environmental impacts</p>
+                                </div>
+                            </div>
+                            
+                            <div class="region-comparison">
+                                <div class="current-selection">
+                                    <div class="selection-label">Your Current Choice</div>
+                                    <select class="region-selector" id="comparison-region-select" onchange="updateRegionComparison()">
+                                        <option value="eu-west-2">eu-west-2</option>
+                                        <option value="eu-north-1">eu-north-1</option>
+                                        <option value="eu-west-3">eu-west-3</option>
+                                        <option value="eu-central-1">eu-central-1</option>
+                                        <option value="eu-west-1">eu-west-1</option>
+                                        <option value="eu-south-1">eu-south-1</option>
+                                        <option value="eu-south-2">eu-south-2</option>
+                                        <option value="eu-central-2">eu-central-2</option>
+                                    </select>
+                                    <div class="region-stats">
+                                        <div class="stat-value" id="current-region-intensity">250</div>
+                                        <div class="stat-unit">gCO₂/kWh</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="vs-indicator">
+                                    <span class="vs-text">vs</span>
+                                    <div class="arrow-right">→</div>
+                                </div>
+                                
+                                <div class="best-alternative">
+                                    <div class="selection-label">Cleanest Option</div>
+                                    <div class="best-region-display">
+                                        <div class="best-region-name" id="best-region-name">Stockholm, Sweden</div>
+                                    </div>
+                                    <div class="region-stats">
+                                        <div class="stat-value green" id="best-region-intensity">15</div>
+                                        <div class="stat-unit">gCO₂/kWh</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="savings-summary">
+                                <div class="savings-badge" id="savings-badge">
+                                    <span class="savings-text">
+                                        <strong id="savings-percentage">Loading...</strong> less carbon emissions
+                                    </span>
+                                </div>
+                                <div class="savings-explanation" id="savings-explanation">
+                                    Loading region comparison data...
+                                </div>
+                            </div>
+                            
+                            <div class="action-hint">
+                                <span class="hint-text">Choose cleaner regions to reduce your carbon footprint</span>
+                            </div>
                         </div>
-                        <div class="generation-mix-details">
-                            <div class="generation-mix-header">
-                                <div class="generation-mix-title">Fuel Sources</div>
-                                <div class="generation-mix-subtitle">Current generation breakdown</div>
+                        <div class="insight-card insight-card-optimal-time">
+                            <div class="optimal-time-header">
+                                <div class="optimal-time-badge">
+                                    <span class="optimal-badge-text" data-edu="forecast">OPTIMAL TIME TO DEPLOY</span>
+                                </div>
+                                <select class="optimal-time-region-select" id="optimal-time-region-select" onchange="updateOptimalTimeForRegion()">
+                                    <option value="eu-west-2">eu-west-2</option>
+                                    <option value="eu-north-1">eu-north-1</option>
+                                    <option value="eu-west-3">eu-west-3</option>
+                                    <option value="eu-central-1">eu-central-1</option>
+                                    <option value="eu-west-1">eu-west-1</option>
+                                    <option value="eu-south-1">eu-south-1</option>
+                                    <option value="eu-south-2">eu-south-2</option>
+                                    <option value="eu-central-2">eu-central-2</option>
+                                </select>
                             </div>
-                            <div class="generation-mix-list" id="generation-mix-list">
-                                <!-- Dynamically populated -->
+                            
+                            <div class="optimal-time-main-display">
+                                <div class="optimal-time-large" id="optimal-time-text">Loading...</div>
+                                <div class="optimal-time-subtitle" id="optimal-time-window">Fetching forecast data...</div>
                             </div>
-                            <div class="generation-mix-footer">
-                                <div class="text-xs text-muted">
-                                    <strong>Data Source:</strong> UK National Grid ESO<br>
-                                    <strong>Update Frequency:</strong> Every 30 minutes<br>
-                                    <strong>Coverage:</strong> Great Britain electricity grid
+                            
+                            <div class="optimal-time-explanation" id="optimal-time-explanation-section">
+                                <div class="explanation-content">
+                                    <div class="explanation-title" id="optimal-explanation-title">Analysis</div>
+                                    <div class="explanation-text" id="optimal-explanation">Loading forecast analysis...</div>
+                                </div>
+                            </div>
+                            
+                            <div class="optimal-time-actions">
+                                <button class="btn-schedule" id="btn-schedule" onclick="scheduleOptimalTime()" style="display: none;">
+                                    Schedule for <span id="schedule-time">--:--</span>
+                                </button>
+                            </div>
+                            
+                            <div class="optimal-time-chart-container">
+                                <div class="forecast-chart" id="optimal-time-chart">
+                                    <!-- Chart bars will be generated by JavaScript -->
                                 </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                <!-- Global Regions Section -->
-                <section class="section" id="global-regions">
-                    <div class="section-header">
+                <!-- AWS Regions Tabbed Section -->
+                <section class="section" id="aws-regions">
+                    <div class="section-header section-header-collapsible" onclick="toggleSection('aws-regions')">
                         <div>
-                            <span class="section-title">AWS Worldwide Regions</span>
-                            <span class="text-xs text-muted">Interactive map · Zoom, pan, and hover to explore</span>
+                            <span class="section-title">AWS Regions</span>
+                            <span class="text-xs text-muted">Real-time carbon intensity across AWS data centers</span>
                         </div>
-                        <div class="view-toggle">
-                            <button class="toggle-btn active" id="map-view-btn" onclick="switchView('map')">🗺️ Map</button>
-                            <button class="toggle-btn" id="grid-view-btn" onclick="switchView('grid')">⊞ Grid</button>
-                        </div>
+                        <button class="collapse-btn" id="aws-regions-collapse-btn">
+                            <span class="collapse-icon">−</span>
+                        </button>
                     </div>
+                    <div class="section-content" id="aws-regions-content">
+                        
+                        <!-- Tab Navigation -->
+                        <div class="tab-navigation">
+                            <button class="tab-btn active" id="europe-tab-btn" onclick="switchRegionTab('europe')">
+                                Europe Regions
+                            </button>
+                            <button class="tab-btn" id="worldwide-tab-btn" onclick="switchRegionTab('worldwide')">
+                                Worldwide Regions
+                            </button>
+                        </div>
+
+                        <!-- Europe Tab Content -->
+                        <div class="tab-content active" id="europe-tab-content">
+                            <div class="tab-header">
+                                <span class="tab-subtitle">gCO₂/kWh · Real-time carbon intensity</span>
+                            </div>
+                            <div class="region-grid" id="region-grid">
+                                <!-- Dynamically populated -->
+                            </div>
+                        </div>
+
+                        <!-- Worldwide Tab Content -->
+                        <div class="tab-content" id="worldwide-tab-content">
+                            <div class="tab-header">
+                                <span class="tab-subtitle">Interactive map · Zoom, pan, and hover to explore</span>
+                                <div class="view-toggle">
+                                    <button class="toggle-btn active" id="map-view-btn" onclick="switchView('map')">Map</button>
+                                    <button class="toggle-btn" id="grid-view-btn" onclick="switchView('grid')">Grid</button>
+                                </div>
+                            </div>
                     
                     <!-- D3.js World Map -->
-                    <div id="world-map-container" style="width: 100%; height: 600px; background: #f8f9fa; border-radius: 8px; position: relative;">
-                        <svg id="world-map" width="100%" height="600"></svg>
+                    <div id="world-map-container" style="width: 100%; height: 450px; background: #f8f9fa; border-radius: 8px; position: relative;">
+                        <svg id="world-map" width="100%" height="450"></svg>
                         <div id="map-tooltip" style="position: absolute; display: none; background: rgba(0,0,0,0.9); color: white; padding: 12px; border-radius: 6px; font-size: 12px; pointer-events: none; z-index: 1000;"></div>
                         
                         <!-- Region Details HUD Panel -->
@@ -215,271 +330,396 @@
                         </div>
                     </div>
                     
-                    <!-- Grid View (Hidden by default) -->
-                    <div class="global-region-grid" id="global-region-grid" style="display: none;">
-                        <!-- Dynamically populated -->
+                            <!-- Grid View (Hidden by default) -->
+                            <div class="global-region-grid" id="global-region-grid" style="display: none;">
+                                <!-- Dynamically populated -->
+                            </div>
+                        </div>
+                        
                     </div>
                 </section>
 
-                <!-- Insights Section -->
-                <section class="section" id="forecast">
-                    <div class="section-header">
-                        <span class="section-title">Carbon Insights</span>
-                    </div>
-                    <div class="insights-grid insights-grid-5">
-                        <div class="insight-card">
-                            <div class="insight-label">
-                                Best Region Now
-                                <span class="tooltip-trigger">
-                                    <span class="info-icon">i</span>
-                                    <div class="tooltip">
-                                        <div class="tooltip-title">Best Region Now</div>
-                                        <div class="tooltip-content">Region with lowest carbon intensity at this moment.</div>
-                                        <div class="tooltip-breakdown">Lower intensity = cleaner electricity = less CO₂ emissions</div>
-                                        <div class="tooltip-example">Run your tests here for minimum environmental impact</div>
-                                    </div>
-                                </span>
-                            </div>
-                            <div class="insight-value accent" id="insight-best-region">--</div>
-                            <div class="insight-detail" id="insight-best-intensity">-- gCO₂/kWh</div>
-                        </div>
-                        <div class="insight-card">
-                            <div class="insight-label">
-                                Potential Savings
-                                <span class="tooltip-trigger">
-                                    <span class="info-icon">i</span>
-                                    <div class="tooltip">
-                                        <div class="tooltip-title">Potential Savings</div>
-                                        <div class="tooltip-content">How much cleaner the best region is vs. the worst region.</div>
-                                        <div class="tooltip-breakdown">Formula: (Highest - Lowest) / Highest × 100</div>
-                                        <div class="tooltip-example">94% = Best region emits 94% less CO₂ than worst region</div>
-                                    </div>
-                                </span>
-                            </div>
-                            <div class="insight-value accent" id="insight-savings">--</div>
-                            <div class="insight-detail">vs highest intensity</div>
-                        </div>
-                        <div class="insight-card">
-                            <div class="insight-label">
-                                Low Carbon Regions
-                                <span class="tooltip-trigger">
-                                    <span class="info-icon">i</span>
-                                    <div class="tooltip">
-                                        <div class="tooltip-title">Low Carbon Regions</div>
-                                        <div class="tooltip-content">Number of regions with carbon intensity ≤ 75 gCO₂/kWh.</div>
-                                        <div class="tooltip-breakdown">Thresholds:<br>• Very Low: ≤ 25<br>• Low: ≤ 75<br>• Moderate: ≤ 150<br>• High: > 150</div>
-                                        <div class="tooltip-example">4/8 = 50% of regions are low carbon right now</div>
-                                    </div>
-                                </span>
-                            </div>
-                            <div class="insight-value" id="insight-low-count">--</div>
-                            <div class="insight-detail">≤75 gCO₂/kWh</div>
-                        </div>
-                        <div class="insight-card">
-                            <div class="insight-label">
-                                Average Intensity
-                                <span class="tooltip-trigger">
-                                    <span class="info-icon">i</span>
-                                    <div class="tooltip">
-                                        <div class="tooltip-title">Average Intensity</div>
-                                        <div class="tooltip-content">Mean carbon intensity across all monitored regions.</div>
-                                        <div class="tooltip-breakdown">Average = Sum of all intensities / Number of regions</div>
-                                        <div class="tooltip-example">Regions: 15, 20, 150, 200<br>Average: (15+20+150+200)/4 = 96.3</div>
-                                    </div>
-                                </span>
-                            </div>
-                            <div class="insight-value" id="insight-avg">--</div>
-                            <div class="insight-detail" id="insight-avg-detail">across Europe</div>
-                        </div>
-                        <div class="insight-card insight-card-interactive">
-                            <div class="insight-label">
-                                Optimal Time (Next 24h)
-                                <span class="tooltip-trigger">
-                                    <span class="info-icon">i</span>
-                                    <div class="tooltip">
-                                        <div class="tooltip-title">Optimal Time</div>
-                                        <div class="tooltip-content">Best time in next 24 hours to run tests with lowest carbon emissions.</div>
-                                        <div class="tooltip-breakdown">Analyzes 48 half-hour forecast slots.<br>Recommends waiting only if:<br>• Savings ≥ 15%, OR<br>• Savings ≥ 10% AND wait < 3 hours</div>
-                                        <div class="tooltip-example">Current: 20 gCO₂/kWh<br>Optimal: 15 gCO₂/kWh at 23:00<br>Savings: 25% → Worth waiting!</div>
-                                    </div>
-                                </span>
-                            </div>
-                            <select class="insight-region-select" id="optimal-time-region" onchange="updateOptimalTime()">
-                                <option value="">Select region...</option>
-                                <option value="eu-west-2">eu-west-2 (London)</option>
-                            </select>
-                            <div class="insight-value" id="optimal-time-value">--</div>
-                            <div class="insight-detail" id="optimal-time-intensity">Select UK region</div>
-                        </div>
-                    </div>
-                </section>
+
 
                 <!-- Excess Power Section -->
-                <!-- Calculator Section -->
+
+
+                <!-- Enhanced Pipeline History Section -->
+                <section class="section" id="history">
+                    <div class="section-header">
+                        <span class="section-title" data-edu="pipeline">Pipeline History & Analytics</span>
+                        <button class="section-action" onclick="exportCSV()">Export CSV</button>
+                    </div>
+                    
+                    <!-- Metrics Overview -->
+                    <div class="history-metrics">
+                        <div class="metric-card">
+                            <div class="metric-label">
+                                BASELINE
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">i</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Baseline Carbon</div>
+                                        <div class="tooltip-content">Average carbon emissions from your first 5 pipeline runs, used as reference point.</div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="metric-value" id="baseline-carbon">--</div>
+                            <div class="metric-unit" id="baseline-commits">-- pipelines</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <div class="metric-label">
+                                LATEST
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">i</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Latest Pipeline</div>
+                                        <div class="tooltip-content">Carbon emissions from your most recent pipeline execution.</div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="metric-value" id="latest-carbon">--</div>
+                            <div class="metric-unit" id="latest-commits">-- pipelines</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <div class="metric-label">
+                                TREND
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">i</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Carbon Trend</div>
+                                        <div class="tooltip-content">Overall trend in carbon emissions over recent pipeline runs.</div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="metric-value trend" id="trend-direction">--</div>
+                            <div class="metric-unit" id="trend-change">-- mg/pipeline</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <div class="metric-label">
+                                REGRESSIONS
+                                <span class="tooltip-trigger">
+                                    <span class="info-icon">i</span>
+                                    <div class="tooltip">
+                                        <div class="tooltip-title">Carbon Regressions</div>
+                                        <div class="tooltip-content">Number of pipelines with significantly higher carbon emissions than baseline.</div>
+                                    </div>
+                                </span>
+                            </div>
+                            <div class="metric-value regressions" id="regressions-count">--</div>
+                            <div class="metric-unit">detected</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Trend Chart -->
+                    <div class="history-chart-container">
+                        <div class="chart-header">
+                            <h3>Energy & Carbon Trend Over Pipelines</h3>
+                            <div class="chart-legend">
+                                <span class="legend-item">
+                                    <span class="legend-dot energy"></span>
+                                    Energy
+                                </span>
+                                <span class="legend-item">
+                                    <span class="legend-dot baseline"></span>
+                                    Baseline
+                                </span>
+                            </div>
+                        </div>
+                        <div class="trend-chart" id="trend-chart">
+                            <div class="trend-chart-header">
+                                <h4 class="trend-chart-title" data-edu="baseline">Carbon Emissions Trend</h4>
+                                <div class="trend-chart-controls">
+                                    <label for="trend-pipeline-filter" class="trend-filter-label">Pipeline:</label>
+                                    <select id="trend-pipeline-filter" class="trend-pipeline-select" onchange="updateTrendChartAndSync()">
+                                        <option value="all">All Pipelines</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <canvas id="trend-canvas" width="1000" height="300"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Pipeline History -->
+                    <div class="pipeline-history">
+                        <div class="history-header">
+                            <h3>Pipeline History</h3>
+                            <div class="history-controls">
+                                <div class="history-filters">
+                                    <select id="pipeline-filter" onchange="filterHistoryAndSync()">
+                                        <option value="all">All Pipelines</option>
+                                    </select>
+                                    <select id="status-filter" onchange="filterHistory()">
+                                        <option value="all">All Status</option>
+                                        <option value="optimized">Optimized</option>
+                                        <option value="successful">Successful</option>
+                                        <option value="failed">Failed</option>
+                                        <option value="cancelled">Cancelled</option>
+                                    </select>
+                                    <select id="region-filter" onchange="filterHistory()">
+                                        <option value="all">All Regions</option>
+                                        <option value="eu-west-2">eu-west-2</option>
+                                        <option value="eu-north-1">eu-north-1</option>
+                                        <option value="eu-west-3">eu-west-3</option>
+                                    </select>
+                                </div>
+                                <div class="view-toggle">
+                                    <button class="toggle-btn active" id="table-view-btn" onclick="switchHistoryView('table')">Table</button>
+                                    <button class="toggle-btn" id="cards-view-btn" onclick="switchHistoryView('cards')">Cards</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Table View (Default) -->
+                        <div class="table-container" id="table-view">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Pipeline</th>
+                                        <th>Execution ID</th>
+                                        <th>Region</th>
+                                        <th>Intensity</th>
+                                        <th>Duration</th>
+                                        <th>Energy</th>
+                                        <th>Carbon</th>
+                                        <th>vs Baseline</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-table">
+                                    <!-- Dynamically populated -->
+                                </tbody>
+                            </table>
+                            
+                            <!-- Pagination Controls -->
+                            <div class="pagination-container" id="pagination-container">
+                                <div class="pagination-info">
+                                    <span id="pagination-info-text">Showing 1-10 of 0 pipelines</span>
+                                </div>
+                                <div class="pagination-controls">
+                                    <button class="pagination-btn" id="prev-page-btn" onclick="changePage(-1)" disabled>
+                                        ← Previous
+                                    </button>
+                                    <div class="pagination-pages" id="pagination-pages">
+                                        <!-- Page numbers will be generated dynamically -->
+                                    </div>
+                                    <button class="pagination-btn" id="next-page-btn" onclick="changePage(1)" disabled>
+                                        Next →
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Cards View -->
+                        <div class="commits-table" id="cards-view" style="display: none;">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Carbon Footprint Calculator Section -->
                 <section class="section" id="calculator">
                     <div class="section-header">
-                        <span class="section-title">Carbon Calculator</span>
+                        <span class="section-title" data-edu="sci">Carbon Footprint Calculator</span>
+                        <span class="text-xs text-muted">Estimate the environmental impact of your cloud workloads</span>
                     </div>
+                    
+                    <!-- Introduction for beginners -->
+                    <div class="calculator-intro">
+                        <div class="intro-content">
+                            <h3>Why Calculate Carbon Emissions?</h3>
+                            <p>Every time you run code in the cloud, it consumes electricity and produces CO₂ emissions. Understanding your carbon footprint helps you:</p>
+                            <ul class="intro-benefits">
+                                <li><strong>Make informed decisions</strong> about where and when to run your workloads</li>
+                                <li><strong>Reduce environmental impact</strong> by choosing cleaner regions and optimal timing</li>
+                                <li><strong>Track progress</strong> towards sustainability goals</li>
+                                <li><strong>Compare options</strong> before deploying applications</li>
+                            </ul>
+                            <div class="intro-example">
+                                <strong>Example:</strong> Running the same workload in Stockholm vs London can reduce emissions by up to 85% due to cleaner electricity sources.
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="calculator">
                         <div class="calculator-header">
                             <div class="calculator-title">
-                                GSF SCI Formula
+                                Simple Carbon Calculator
                                 <span class="tooltip-trigger">
                                     <span class="info-icon">i</span>
                                     <div class="tooltip">
-                                        <div class="tooltip-title">Software Carbon Intensity (SCI)</div>
-                                        <div class="tooltip-content">Standard formula from Green Software Foundation for measuring software carbon emissions.</div>
-                                        <div class="tooltip-breakdown">SCI = ((E × I) + M) / R<br><br>E = Energy (kWh)<br>I = Carbon Intensity (gCO₂/kWh)<br>M = Embodied Carbon (gCO₂)<br>R = Functional Unit (e.g., per test)</div>
-                                        <div class="tooltip-example">For 1 hour test with 2 vCPUs:<br>E = 0.008 kWh<br>I = 15 gCO₂/kWh<br>M = 0.06g<br>SCI = (0.008 × 15) + 0.06 = 0.18g</div>
+                                        <div class="tooltip-title">How This Calculator Works</div>
+                                        <div class="tooltip-content">This calculator estimates CO₂ emissions from your cloud workload using industry-standard methods.</div>
+                                        <div class="tooltip-breakdown">
+                                            <strong>What we calculate:</strong><br>
+                                            • Energy consumed by your servers<br>
+                                            • CO₂ emissions from electricity generation<br>
+                                            • Manufacturing impact of hardware<br>
+                                            • Data center efficiency factors
+                                        </div>
+                                        <div class="tooltip-example">
+                                            <strong>Based on:</strong><br>
+                                            • Green Software Foundation standards<br>
+                                            • Cloud Carbon Footprint methodology<br>
+                                            • Real-time grid carbon intensity data
+                                        </div>
                                     </div>
                                 </span>
                             </div>
-                            <div class="calculator-subtitle">SCI = ((E × I) + M) / R</div>
+                            <div class="calculator-subtitle">Enter your workload details below to get an instant carbon footprint estimate</div>
                         </div>
                         <div class="calculator-body">
                             <div class="calc-inputs">
                                 <div class="input-group">
-                                    <label class="input-label">Region</label>
+                                    <label class="input-label">
+                                        Cloud Region
+                                        <span class="tooltip-trigger">
+                                            <span class="info-icon">i</span>
+                                            <div class="tooltip">
+                                                <div class="tooltip-title">Why Region Matters</div>
+                                                <div class="tooltip-content">Different regions use different energy sources. Some regions use more renewable energy, resulting in lower carbon emissions.</div>
+                                                <div class="tooltip-example">
+                                                    <strong>Clean regions:</strong> Stockholm (wind/hydro), Paris (nuclear)<br>
+                                                    <strong>Higher carbon:</strong> London (gas), Frankfurt (mixed)
+                                                </div>
+                                            </div>
+                                        </span>
+                                    </label>
                                     <select class="input-field" id="calc-region">
-                                        <option value="eu-west-2">eu-west-2 (London)</option>
-                                        <option value="eu-north-1">eu-north-1 (Stockholm)</option>
-                                        <option value="eu-west-3">eu-west-3 (Paris)</option>
-                                        <option value="eu-central-1">eu-central-1 (Frankfurt)</option>
-                                        <option value="us-east-1">us-east-1 (N. Virginia)</option>
+                                        <option value="eu-north-1">eu-north-1</option>
+                                        <option value="eu-west-3">eu-west-3</option>
+                                        <option value="eu-central-2">eu-central-2</option>
+                                        <option value="eu-west-1">eu-west-1</option>
+                                        <option value="eu-central-1">eu-central-1</option>
+                                        <option value="eu-west-2" selected>eu-west-2</option>
+                                        <option value="eu-south-1">eu-south-1</option>
+                                        <option value="eu-south-2">eu-south-2</option>
+                                        <option value="us-east-1">us-east-1</option>
                                     </select>
                                 </div>
                                 <div class="input-group">
-                                    <label class="input-label">Duration (min)</label>
-                                    <input type="number" class="input-field" id="calc-duration" value="60" min="1" max="1440">
-                                </div>
-                                <div class="input-group">
                                     <label class="input-label">
-                                        vCPUs
+                                        How long will it run?
                                         <span class="tooltip-trigger">
                                             <span class="info-icon">i</span>
                                             <div class="tooltip">
-                                                <div class="tooltip-title">vCPU (Virtual CPU)</div>
-                                                <div class="tooltip-content">Virtual processor cores allocated to your compute instance.</div>
-                                                <div class="tooltip-breakdown">Power: ~3.5W per vCPU (average TDP)<br>Energy = vCPUs × 3.5W × Hours / 1000</div>
-                                                <div class="tooltip-example">4 vCPUs for 1 hour:<br>4 × 3.5W × 1h = 14Wh = 0.014 kWh</div>
+                                                <div class="tooltip-title">Runtime Duration</div>
+                                                <div class="tooltip-content">Longer running workloads consume more energy and produce more emissions.</div>
+                                                <div class="tooltip-example">
+                                                    <strong>Examples:</strong><br>
+                                                    • Unit tests: 5-15 minutes<br>
+                                                    • Build process: 10-30 minutes<br>
+                                                    • Integration tests: 30-60 minutes<br>
+                                                    • Training ML model: hours to days
+                                                </div>
                                             </div>
                                         </span>
                                     </label>
-                                    <input type="number" class="input-field" id="calc-vcpu" value="2" min="1" max="96">
+                                    <input type="number" class="input-field" id="calc-duration" value="60" min="1" max="10080" placeholder="60">
+                                    <span class="input-unit">minutes</span>
                                 </div>
                                 <div class="input-group">
                                     <label class="input-label">
-                                        Memory (GB)
+                                        CPU Cores (vCPUs)
                                         <span class="tooltip-trigger">
                                             <span class="info-icon">i</span>
                                             <div class="tooltip">
-                                                <div class="tooltip-title">Memory Power</div>
-                                                <div class="tooltip-content">RAM consumes electricity even when idle.</div>
-                                                <div class="tooltip-breakdown">Coefficient: 0.000392 kWh per GB per hour<br>Energy = GB × 0.000392 × Hours</div>
-                                                <div class="tooltip-example">16 GB for 1 hour:<br>16 × 0.000392 = 0.00627 kWh</div>
+                                                <div class="tooltip-title">Virtual CPU Cores</div>
+                                                <div class="tooltip-content">More CPU cores = more processing power = more energy consumption.</div>
+                                                <div class="tooltip-example">
+                                                    <strong>Typical workloads:</strong><br>
+                                                    • Small app: 1-2 vCPUs<br>
+                                                    • Web service: 2-4 vCPUs<br>
+                                                    • Data processing: 4-8 vCPUs<br>
+                                                    • ML training: 8+ vCPUs
+                                                </div>
                                             </div>
                                         </span>
                                     </label>
-                                    <input type="number" class="input-field" id="calc-memory" value="4" min="1" max="768">
+                                    <input type="number" class="input-field" id="calc-vcpu" value="2" min="1" max="96" placeholder="2">
+                                    <span class="input-unit">cores</span>
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label">
+                                        Memory (RAM)
+                                        <span class="tooltip-trigger">
+                                            <span class="info-icon">i</span>
+                                            <div class="tooltip">
+                                                <div class="tooltip-title">Memory Usage</div>
+                                                <div class="tooltip-content">RAM also consumes electricity, even when not actively processing data.</div>
+                                                <div class="tooltip-example">
+                                                    <strong>Typical memory:</strong><br>
+                                                    • Small app: 1-4 GB<br>
+                                                    • Web service: 4-8 GB<br>
+                                                    • Database: 8-32 GB<br>
+                                                    • Big data: 32+ GB
+                                                </div>
+                                            </div>
+                                        </span>
+                                    </label>
+                                    <input type="number" class="input-field" id="calc-memory" value="4" min="1" max="768" placeholder="4">
+                                    <span class="input-unit">GB</span>
                                 </div>
                                 <div class="input-group full calc-action">
-                                    <button class="btn-text" onclick="calculateCarbonUI()">Calculate Carbon →</button>
+                                    <button class="btn-calculate" onclick="calculateCarbonUI()">
+                                        Calculate My Carbon Footprint
+                                    </button>
                                 </div>
                             </div>
                             <div class="calc-results" id="calc-results">
-                                <div class="result-item">
-                                    <span class="result-label">
-                                        Energy
-                                        <span class="tooltip-trigger">
-                                            <span class="info-icon">i</span>
-                                            <div class="tooltip">
-                                                <div class="tooltip-title">Energy Consumption</div>
-                                                <div class="tooltip-content">Total electricity used by CPU and memory.</div>
-                                                <div class="tooltip-breakdown">CPU: vCPUs × 3.5W × Hours / 1000<br>Memory: GB × 0.000392 × Hours<br>Total: (CPU + Memory) × PUE</div>
-                                                <div class="tooltip-example">2 vCPUs, 4GB, 1 hour:<br>CPU: 2 × 3.5 × 1 / 1000 = 0.007 kWh<br>Mem: 4 × 0.000392 = 0.0016 kWh<br>Total: 0.0086 × 1.135 = 0.0098 kWh</div>
-                                            </div>
-                                        </span>
-                                    </span>
-                                    <span class="result-value" id="result-energy">-- kWh</span>
+                                <div class="results-header">
+                                    <h4>Your Carbon Footprint</h4>
+                                    <p class="results-subtitle">Environmental impact of your workload</p>
                                 </div>
-                                <div class="result-item">
-                                    <span class="result-label">
-                                        Operational
-                                        <span class="tooltip-trigger">
-                                            <span class="info-icon">i</span>
-                                            <div class="tooltip">
-                                                <div class="tooltip-title">Operational Carbon</div>
-                                                <div class="tooltip-content">CO₂ emissions from electricity consumption during operation.</div>
-                                                <div class="tooltip-breakdown">Operational = Energy (kWh) × Carbon Intensity (gCO₂/kWh)</div>
-                                                <div class="tooltip-example">0.01 kWh × 15 gCO₂/kWh = 0.15g CO₂</div>
-                                            </div>
-                                        </span>
-                                    </span>
-                                    <span class="result-value" id="result-operational">-- gCO₂</span>
+                                
+                                <div class="result-highlight">
+                                    <div class="result-main">
+                                        <span class="result-label">Total CO₂ Emissions</span>
+                                        <span class="result-value-large" id="result-total">-- grams</span>
+                                    </div>
+                                    <div class="result-comparison" id="result-comparison">
+                                        <!-- Dynamic comparison will be added here -->
+                                    </div>
                                 </div>
-                                <div class="result-item">
-                                    <span class="result-label">
-                                        Embodied
-                                        <span class="tooltip-trigger">
-                                            <span class="info-icon">i</span>
-                                            <div class="tooltip">
-                                                <div class="tooltip-title">Embodied Carbon</div>
-                                                <div class="tooltip-content">CO₂ from manufacturing, shipping, and disposing of hardware.</div>
-                                                <div class="tooltip-breakdown">Amortized over 4-year server lifetime<br>Rate: ~0.03g CO₂ per vCPU-hour</div>
-                                                <div class="tooltip-example">2 vCPUs for 1 hour:<br>2 × 0.03 × 1 = 0.06g CO₂</div>
+
+                                <div class="result-breakdown">
+                                    <div class="breakdown-title">Breakdown</div>
+                                    <div class="result-grid">
+                                        <div class="result-item">
+                                            <div class="result-details">
+                                                <span class="result-label">Energy Used</span>
+                                                <span class="result-value" id="result-energy">-- kWh</span>
                                             </div>
-                                        </span>
-                                    </span>
-                                    <span class="result-value" id="result-embodied">-- gCO₂</span>
-                                </div>
-                                <div class="result-item">
-                                    <span class="result-label">
-                                        PUE Factor
-                                        <span class="tooltip-trigger">
-                                            <span class="info-icon">i</span>
-                                            <div class="tooltip">
-                                                <div class="tooltip-title">PUE (Power Usage Effectiveness)</div>
-                                                <div class="tooltip-content">Ratio of total data center energy to IT equipment energy.</div>
-                                                <div class="tooltip-breakdown">PUE = Total Facility Energy / IT Equipment Energy<br><br>Includes cooling, lighting, networking overhead</div>
-                                                <div class="tooltip-example">AWS: 1.135 (very efficient)<br>Typical: 1.67<br>Poor: 2.0+</div>
+                                        </div>
+                                        <div class="result-item">
+                                            <div class="result-details">
+                                                <span class="result-label">From Electricity</span>
+                                                <span class="result-value" id="result-operational">-- gCO₂</span>
                                             </div>
-                                        </span>
-                                    </span>
-                                    <span class="result-value">1.135×</span>
+                                        </div>
+                                        <div class="result-item">
+                                            <div class="result-details">
+                                                <span class="result-label">From Hardware</span>
+                                                <span class="result-value" id="result-embodied">-- gCO₂</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="result-item highlight">
-                                    <span class="result-label">Total Carbon (SCI)</span>
-                                    <span class="result-value" id="result-total">-- gCO₂</span>
+
+                                <div class="result-actions">
+                                    <div class="action-suggestions">
+                                        <h5>Ways to Reduce Your Impact</h5>
+                                        <ul class="suggestions-list" id="suggestions-list">
+                                            <!-- Dynamic suggestions will be added here -->
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </section>
-
-                <!-- History Section -->
-                <section class="section" id="history">
-                    <div class="section-header">
-                        <span class="section-title">Test History</span>
-                        <button class="section-action" onclick="exportCSV()">Export CSV</button>
-                    </div>
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>Test Suite</th>
-                                    <th>Region</th>
-                                    <th>Intensity</th>
-                                    <th>Duration</th>
-                                    <th>Carbon</th>
-                                    <th>Savings</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="history-table">
-                                <!-- Dynamically populated -->
-                            </tbody>
-                        </table>
                     </div>
                 </section>
 
@@ -655,7 +895,31 @@
             </div>
         </div>
     </div>
+    
+    <!-- Glossary Panel -->
+    <div class="glossary-panel" id="glossary-panel">
+        <div class="glossary-header">
+            <span class="glossary-title">Green Software Glossary</span>
+            <button class="glossary-close" onclick="closeGlossary()">×</button>
+        </div>
+        <div class="glossary-search">
+            <input type="text" id="glossary-search-input" placeholder="Search terms..." oninput="filterGlossary(this.value)">
+        </div>
+        <div class="glossary-content" id="glossary-content">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
 
+    <!-- Real Data API (NO MOCKING) -->
+    <script src="real-data-api.js"></script>
+    
+    <!-- Educational Features -->
+    <script src="educational-tooltips.js"></script>
+    
+    <!-- Test History Data (generated by test_real_pipeline.py) -->
+    <script src="test-history-data.js"></script>
+    
+    <!-- Main Application -->
     <script src="app.js"></script>
 </body>
 </html>

@@ -22,6 +22,12 @@ Parameters:
     NoEcho: true
     Description: WattTime API password (optional)
 
+  ElectricityMapsToken:
+    Type: String
+    Default: '7Cq9hfFAKl0gAtYNhvc2'
+    NoEcho: true
+    Description: ElectricityMaps API token for global carbon data
+
 Resources:
   # DynamoDB Table for Carbon Intensity Data
   CarbonIntensityTable:
@@ -48,21 +54,117 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
-  # DynamoDB Table for Test Executions
-  TestExecutionsTable:
+  # DynamoDB Table for Pipeline Executions
+  PipelineExecutionsTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub 'green_qa_test_executions_${Environment}'
+      TableName: !Sub 'pipeline_executions_${Environment}'
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: execution_id
           AttributeType: S
         - AttributeName: timestamp
           AttributeType: N
+        - AttributeName: pipeline_name
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
       KeySchema:
         - AttributeName: execution_id
           KeyType: HASH
         - AttributeName: timestamp
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: PipelineNameIndex
+          KeySchema:
+            - AttributeName: pipeline_name
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: GreenQA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # DynamoDB Table for Carbon Intensity History
+  CarbonHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'carbon_intensity_history_${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: region
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        - AttributeName: region
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: GreenQA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # DynamoDB Table for Pipeline Analytics
+  PipelineAnalyticsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'pipeline_analytics_${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pipeline_name
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pipeline_name
+          KeyType: HASH
+        - AttributeName: date
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: GreenQA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # DynamoDB Table for Regional Insights
+  RegionalInsightsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'regional_insights_${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: date
+          AttributeType: S
+        - AttributeName: hour
+          AttributeType: N
+      KeySchema:
+        - AttributeName: date
+          KeyType: HASH
+        - AttributeName: hour
           KeyType: RANGE
       TimeToLiveSpecification:
         AttributeName: ttl
@@ -99,9 +201,14 @@ Resources:
                   - dynamodb:Query
                   - dynamodb:Scan
                   - dynamodb:UpdateItem
+                  - dynamodb:BatchWriteItem
                 Resource:
                   - !GetAtt CarbonIntensityTable.Arn
-                  - !GetAtt TestExecutionsTable.Arn
+                  - !GetAtt PipelineExecutionsTable.Arn
+                  - !GetAtt CarbonHistoryTable.Arn
+                  - !GetAtt PipelineAnalyticsTable.Arn
+                  - !GetAtt RegionalInsightsTable.Arn
+                  - !Sub '${PipelineExecutionsTable.Arn}/index/*'
 
   # Carbon Ingestion Lambda
   CarbonIngestionFunction:
@@ -169,6 +276,133 @@ Resources:
           Arn: !GetAtt CarbonIngestionFunction.Arn
           Input: '{"action": "refresh"}'
 
+  # Pipeline Completion Monitor Lambda
+  PipelineCompletionFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'green-qa-pipeline-monitor-${Environment}'
+      Runtime: python3.11
+      Handler: completion_handler.lambda_handler
+      Role: !GetAtt PipelineMonitorRole.Arn
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          PIPELINE_EXECUTIONS_TABLE: !Ref PipelineExecutionsTable
+          CARBON_HISTORY_TABLE: !Ref CarbonHistoryTable
+          PIPELINE_ANALYTICS_TABLE: !Ref PipelineAnalyticsTable
+          REGIONAL_INSIGHTS_TABLE: !Ref RegionalInsightsTable
+          SNS_TOPIC_ARN: !Ref PipelineNotificationTopic
+          ELECTRICITY_MAPS_TOKEN: !Ref ElectricityMapsToken
+      Code:
+        ZipFile: |
+          # Placeholder - deploy actual code via SAM or CI/CD
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': 'Deploy actual code'}
+      Tags:
+        - Key: Project
+          Value: GreenQA
+        - Key: Environment
+          Value: !Ref Environment
+
+  # IAM Role for Pipeline Monitor Lambda
+  PipelineMonitorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'green-qa-pipeline-monitor-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: PipelineMonitorAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codepipeline:GetPipeline
+                  - codepipeline:GetPipelineExecution
+                  - codepipeline:GetPipelineState
+                  - codepipeline:ListActionExecutions
+                  - codebuild:BatchGetBuilds
+                  - codebuild:BatchGetProjects
+                  - codecommit:GetCommit
+                  - cloudwatch:GetMetricStatistics
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                  - logs:GetLogEvents
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                  - dynamodb:BatchWriteItem
+                Resource:
+                  - !GetAtt PipelineExecutionsTable.Arn
+                  - !GetAtt CarbonHistoryTable.Arn
+                  - !GetAtt PipelineAnalyticsTable.Arn
+                  - !GetAtt RegionalInsightsTable.Arn
+                  - !Sub '${PipelineExecutionsTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref PipelineNotificationTopic
+
+  # EventBridge Rule for CodePipeline State Changes
+  PipelineStateChangeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'green-qa-pipeline-state-change-${Environment}'
+      Description: 'Capture CodePipeline state changes for carbon tracking'
+      EventPattern:
+        source:
+          - aws.codepipeline
+        detail-type:
+          - CodePipeline Pipeline Execution State Change
+        detail:
+          state:
+            - SUCCEEDED
+            - FAILED
+            - STOPPED
+      State: ENABLED
+      Targets:
+        - Id: PipelineCompletionTarget
+          Arn: !GetAtt PipelineCompletionFunction.Arn
+
+  # EventBridge Rule for Delayed Pipeline Monitoring (15 minutes after trigger)
+  DelayedPipelineCheckRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'green-qa-delayed-pipeline-check-${Environment}'
+      Description: 'Check pipeline status 15 minutes after initial trigger'
+      ScheduleExpression: 'rate(15 minutes)'
+      State: DISABLED  # Enable manually when needed
+      Targets:
+        - Id: DelayedPipelineCheckTarget
+          Arn: !GetAtt PipelineCompletionFunction.Arn
+          Input: '{"source": "delayed_check", "action": "check_running_pipelines"}'
+
+  # SNS Topic for Pipeline Notifications
+  PipelineNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'green-qa-pipeline-notifications-${Environment}'
+      DisplayName: 'Green QA Pipeline Notifications'
+      Tags:
+        - Key: Project
+          Value: GreenQA
+        - Key: Environment
+          Value: !Ref Environment
+
   # Permission for EventBridge to invoke Lambda
   CarbonRefreshPermission:
     Type: AWS::Lambda::Permission
@@ -177,6 +411,23 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt CarbonRefreshSchedule.Arn
+
+  # Permission for EventBridge to invoke Pipeline Monitor Lambda
+  PipelineStateChangePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PipelineCompletionFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt PipelineStateChangeRule.Arn
+
+  DelayedPipelineCheckPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PipelineCompletionFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DelayedPipelineCheckRule.Arn
 
   # API Gateway for external access
   GreenQAApi:
@@ -239,9 +490,37 @@ Outputs:
     Description: DynamoDB table for carbon intensity data
     Value: !Ref CarbonIntensityTable
 
-  TestExecutionsTableName:
-    Description: DynamoDB table for test execution data
-    Value: !Ref TestExecutionsTable
+  PipelineExecutionsTableName:
+    Description: DynamoDB table for pipeline execution data
+    Value: !Ref PipelineExecutionsTable
+
+  CarbonHistoryTableName:
+    Description: DynamoDB table for carbon intensity history
+    Value: !Ref CarbonHistoryTable
+
+  PipelineAnalyticsTableName:
+    Description: DynamoDB table for pipeline analytics
+    Value: !Ref PipelineAnalyticsTable
+
+  RegionalInsightsTableName:
+    Description: DynamoDB table for regional insights
+    Value: !Ref RegionalInsightsTable
+
+  PipelineMonitorFunctionArn:
+    Description: Pipeline Monitor Lambda ARN
+    Value: !GetAtt PipelineCompletionFunction.Arn
+
+  PipelineMonitorFunctionName:
+    Description: Pipeline Monitor Lambda Function Name
+    Value: !Ref PipelineCompletionFunction
+
+  PipelineNotificationTopicArn:
+    Description: SNS Topic for pipeline notifications
+    Value: !Ref PipelineNotificationTopic
+
+  PipelineStateChangeRuleArn:
+    Description: EventBridge rule for pipeline state changes
+    Value: !GetAtt PipelineStateChangeRule.Arn
 
   CarbonIngestionFunctionArn:
     Description: Carbon Ingestion Lambda ARN

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regression Test - ZeroCarb</title>
+    <link rel="stylesheet" href="public/styles.css">
+    <link rel="stylesheet" href="public/educational.css">
+</head>
+<body>
+    <div style="padding: 20px; max-width: 1200px; margin: 0 auto;">
+        <h1>Regression Calculation Test</h1>
+        
+        <!-- Metrics Overview -->
+        <div class="history-metrics">
+            <div class="metric-card">
+                <div class="metric-label">
+                    BASELINE
+                </div>
+                <div class="metric-value" id="baseline-carbon">--</div>
+                <div class="metric-unit" id="baseline-commits">-- pipelines</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">
+                    LATEST
+                </div>
+                <div class="metric-value" id="latest-carbon">--</div>
+                <div class="metric-unit" id="latest-commits">-- pipelines</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">
+                    TREND
+                </div>
+                <div class="metric-value trend" id="trend-direction">--</div>
+                <div class="metric-unit" id="trend-change">-- mg/pipeline</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">
+                    REGRESSIONS
+                </div>
+                <div class="metric-value regressions" id="regressions-count">--</div>
+                <div class="metric-unit">detected</div>
+            </div>
+        </div>
+        
+        <!-- Pipeline Filter -->
+        <div style="margin: 20px 0;">
+            <label for="pipeline-filter">Filter by Pipeline:</label>
+            <select id="pipeline-filter" onchange="testRegressionCalculation()" style="margin-left: 10px; padding: 8px;">
+                <option value="all">All Pipelines</option>
+            </select>
+        </div>
+        
+        <!-- Test Results -->
+        <div id="test-results" style="margin-top: 20px; padding: 20px; background: #f8fafc; border-radius: 8px;">
+            <h3>Test Results:</h3>
+            <div id="test-output">Loading...</div>
+        </div>
+        
+        <div style="margin-top: 20px; padding: 20px; background: #eff6ff; border-radius: 8px;">
+            <h3>Expected Behavior:</h3>
+            <ul>
+                <li><strong>Color:</strong> Regressions should be RED (not green) to indicate problems</li>
+                <li><strong>Dynamic Update:</strong> Regression count should change when pipeline filter changes</li>
+                <li><strong>Visual Warning:</strong> Regression card should have red border when regressions > 0</li>
+                <li><strong>Calculation:</strong> Regressions = pipelines with carbon >20% above baseline</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Load test data -->
+    <script src="public/test-history-data.js"></script>
+    
+    <!-- Load main app functions -->
+    <script>
+        // Minimal state for testing
+        const state = {
+            pipelineHistory: [],
+            testHistory: []
+        };
+        
+        // Load test data when available
+        if (typeof TEST_HISTORY_DATA !== 'undefined') {
+            state.pipelineHistory = TEST_HISTORY_DATA;
+            console.log('✅ Loaded', TEST_HISTORY_DATA.length, 'test pipeline records');
+        }
+    </script>
+    
+    <script src="public/app.js"></script>
+    
+    <script>
+        function testRegressionCalculation() {
+            const pipelineFilter = document.getElementById('pipeline-filter')?.value || 'all';
+            const testOutput = document.getElementById('test-output');
+            
+            if (!state.pipelineHistory || state.pipelineHistory.length === 0) {
+                testOutput.innerHTML = '<div style="color: red;">❌ No test data available</div>';
+                return;
+            }
+            
+            // Filter data like the main app does
+            let filteredData = state.pipelineHistory;
+            if (pipelineFilter !== 'all') {
+                filteredData = state.pipelineHistory.filter(p => 
+                    (p.pipeline_name || p.test_suite || p.suite || 'Unknown') === pipelineFilter
+                );
+            }
+            
+            // Calculate metrics
+            const metrics = calculateHistoryMetrics(filteredData);
+            
+            // Update display
+            renderHistoryMetrics(filteredData);
+            
+            // Show test results
+            const regressionThreshold = metrics.baseline.carbon * 1.2;
+            const regressionsData = filteredData.filter(p => (p.carbon_g || p.carbon || 0) > regressionThreshold);
+            
+            testOutput.innerHTML = `
+                <div><strong>Filter:</strong> ${pipelineFilter}</div>
+                <div><strong>Data Count:</strong> ${filteredData.length} pipelines</div>
+                <div><strong>Baseline:</strong> ${metrics.baseline.carbon.toFixed(2)} mg (from ${metrics.baseline.commits} pipelines)</div>
+                <div><strong>Regression Threshold:</strong> ${regressionThreshold.toFixed(2)} mg (baseline + 20%)</div>
+                <div><strong>Regressions Found:</strong> ${metrics.regressions}</div>
+                <div><strong>Regression Details:</strong></div>
+                <ul>
+                    ${regressionsData.map(p => `
+                        <li>${p.pipeline_name || 'Unknown'}: ${(p.carbon_g || p.carbon || 0).toFixed(2)} mg (${(((p.carbon_g || p.carbon || 0) / metrics.baseline.carbon - 1) * 100).toFixed(1)}% above baseline)</li>
+                    `).join('')}
+                </ul>
+                <div style="margin-top: 10px; color: ${metrics.regressions > 0 ? 'red' : 'green'};">
+                    <strong>Status:</strong> ${metrics.regressions > 0 ? '⚠️ Regressions detected!' : '✅ No regressions'}
+                </div>
+            `;
+        }
+        
+        // Initialize the test
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🧪 Starting regression test...');
+            
+            if (state.pipelineHistory.length > 0) {
+                // Populate pipeline filter
+                populatePipelineFilter(state.pipelineHistory);
+                
+                // Run initial test
+                testRegressionCalculation();
+                
+                console.log('✅ Regression test initialized');
+            } else {
+                console.error('❌ No test data available');
+            }
+        });
+    </script>
+</body>
+</html>

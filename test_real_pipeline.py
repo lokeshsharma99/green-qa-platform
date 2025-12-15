@@ -179,7 +179,7 @@ def main():
         recommendation = 'relocate'
         target_region = optimal_region
         target_intensity = optimal_intensity
-        reason = f"Running in {optimal_region} would save {((default_intensity - optimal_intensity) / default_intensity * 100):.0f}% carbon"
+        reason = f"Running in {target_region} would save {((default_intensity - optimal_intensity) / default_intensity * 100):.0f}% carbon"
     else:
         recommendation = 'run_now'
         target_region = default_region
@@ -200,21 +200,23 @@ def main():
     
     # Test workload parameters - these represent the EXPECTED pipeline runtime
     # Not the script execution time, but how long your CI/CD pipeline typically runs
-    # You can pass these as command line args: python test_real_pipeline.py 10 2 4
     
     import sys
+    
     if len(sys.argv) >= 4:
         duration_minutes = int(sys.argv[1])
         vcpu_count = int(sys.argv[2])
         memory_gb = float(sys.argv[3])
-        print(f"   Using command line args: {duration_minutes}min, {vcpu_count} vCPUs, {memory_gb}GB")
+        print(f"   Using provided parameters: {duration_minutes}min, {vcpu_count} vCPUs, {memory_gb}GB")
     else:
-        # Default values for typical CI/CD pipeline
-        duration_minutes = 10  # 10 minutes typical pipeline
-        vcpu_count = 2
-        memory_gb = 4
-        print(f"   Using defaults: {duration_minutes}min, {vcpu_count} vCPUs, {memory_gb}GB")
-        print(f"   (Pass custom values: python test_real_pipeline.py <minutes> <vcpus> <memory_gb>)")
+        # Realistic defaults based on typical CodeBuild medium instances
+        duration_minutes = 15  # More realistic for CI/CD
+        vcpu_count = 4         # CodeBuild BUILD_GENERAL1_MEDIUM
+        memory_gb = 7          # CodeBuild BUILD_GENERAL1_MEDIUM
+        print(f"   Using CodeBuild medium instance estimates: {duration_minutes}min, {vcpu_count} vCPUs, {memory_gb}GB")
+        print(f"   (Override with: python test_real_pipeline.py <minutes> <vcpus> <memory_gb>)")
+    
+    print(f"   💡 These are pre-execution estimates. Real AWS metrics will be collected automatically after completion.")
     
     # CCF constants
     PUE = 1.135
@@ -240,11 +242,12 @@ def main():
     savings_g = default_sci - optimal_sci
     savings_percent = (savings_g / default_sci * 100) if default_sci > 0 else 0
     
-    print(f"   Workload: {duration_minutes}min, {vcpu_count} vCPUs, {memory_gb}GB RAM")
-    print(f"   Energy: {total_energy_kwh:.6f} kWh")
-    print(f"   Default SCI ({default_region}): {default_sci:.4f} gCO2")
-    print(f"   Optimal SCI ({target_region}): {optimal_sci:.4f} gCO2")
-    print(f"   Savings: {savings_g:.4f} gCO2 ({savings_percent:.2f}%)")
+    print(f"   Estimated workload: {duration_minutes}min, {vcpu_count} vCPUs, {memory_gb}GB RAM")
+    print(f"   Estimated energy: {total_energy_kwh:.6f} kWh")
+    print(f"   Estimated SCI ({default_region}): {default_sci:.4f} gCO2")
+    print(f"   Estimated SCI ({target_region}): {optimal_sci:.4f} gCO2")
+    print(f"   Estimated savings: {savings_g:.4f} gCO2 ({savings_percent:.2f}%)")
+    print(f"   📊 Note: These are estimates. Real AWS metrics will be collected automatically.")
     
     # Step 6: Trigger pipeline
     print("\n🚀 Step 6: Triggering pipeline...")
@@ -274,22 +277,57 @@ def main():
             # Create client for PIPELINE region (where pipeline exists)
             # Note: We trigger in pipeline_region but calculate carbon savings for optimal_region
             if aws_session_token:
-                client = boto3.client(
+                codepipeline_client = boto3.client(
                     'codepipeline',
                     region_name=pipeline_region,
                     aws_access_key_id=aws_access_key,
                     aws_secret_access_key=aws_secret_key,
                     aws_session_token=aws_session_token
                 )
+                lambda_client = boto3.client(
+                    'lambda',
+                    region_name=pipeline_region,
+                    aws_access_key_id=aws_access_key,
+                    aws_secret_access_key=aws_secret_key,
+                    aws_session_token=aws_session_token
+                )
             else:
-                client = boto3.client('codepipeline', region_name=pipeline_region)
+                codepipeline_client = boto3.client('codepipeline', region_name=pipeline_region)
+                lambda_client = boto3.client('lambda', region_name=pipeline_region)
             
-            response = client.start_pipeline_execution(name=pipeline_name)
+            response = codepipeline_client.start_pipeline_execution(name=pipeline_name)
             execution_id = response.get('pipelineExecutionId')
             pipeline_status = 'success'
             
             print(f"   ✅ Pipeline triggered successfully!")
             print(f"   Execution ID: {execution_id}")
+            
+            # Schedule monitoring Lambda to collect final data
+            monitor_function_name = os.environ.get('PIPELINE_MONITOR_FUNCTION', 'green-qa-pipeline-monitor-prod')
+            
+            try:
+                # Schedule immediate monitoring (will wait for completion)
+                monitor_payload = {
+                    'pipeline_name': pipeline_name,
+                    'execution_id': execution_id,
+                    'region': pipeline_region,
+                    'trigger_source': 'zerocarb_script',
+                    'wait_for_completion': True
+                }
+                
+                lambda_client.invoke(
+                    FunctionName=monitor_function_name,
+                    InvocationType='Event',  # Asynchronous
+                    Payload=json.dumps(monitor_payload)
+                )
+                
+                print(f"   📊 Monitoring Lambda scheduled for execution: {execution_id}")
+                print(f"   📈 Real AWS data will be collected automatically upon completion")
+                
+            except Exception as monitor_error:
+                print(f"   ⚠ Warning: Could not schedule monitoring Lambda: {monitor_error}")
+                print(f"   💡 You can manually collect data later using:")
+                print(f"      python collect_pipeline_data.py {pipeline_name} {execution_id}")
             
         except Exception as e:
             pipeline_status = 'failed'
@@ -300,11 +338,77 @@ def main():
         pipeline_status = 'skipped'
     
     # Step 7: Save result
-    print("\n💾 Step 7: Saving result for UI...")
+    print("\n💾 Step 7: Saving result for UI and DynamoDB...")
     
+    # Create comprehensive execution record for DynamoDB
+    execution_record = {
+        'execution_id': execution_id or f"sim-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        'timestamp': int(datetime.now(timezone.utc).timestamp()),
+        'pipeline_name': pipeline_name,
+        'pipeline_region': pipeline_region,
+        'trigger_source': 'zerocarb_manual',
+        'status': pipeline_status.upper() if pipeline_status != 'skipped' else 'SIMULATED',
+        
+        # Carbon Intelligence
+        'carbon_analysis': {
+            'decision': recommendation.upper(),
+            'reason': reason,
+            'default_region': default_region,
+            'default_intensity': default_intensity,
+            'optimal_region': target_region,
+            'optimal_intensity': target_intensity,
+            'savings_g': round(savings_g, 4),
+            'savings_percent': round(savings_percent, 2)
+        },
+        
+        # Workload Details
+        'workload': {
+            'duration_minutes': duration_minutes,
+            'vcpu_count': vcpu_count,
+            'memory_gb': memory_gb,
+            'energy_kwh': round(total_energy_kwh, 6),
+            'sci_score': round(optimal_sci, 4)
+        },
+        
+        # Regional Context (all regions at time of execution)
+        'regional_snapshot': {region: {'intensity': intensity, 'source': 'electricity_maps' if region != 'eu-west-2' else 'uk_grid_eso'} 
+                            for region, intensity in all_intensities.items()},
+        
+        # Configuration
+        'config': {
+            'auto_trigger': auto_trigger,
+            'min_savings_defer': int(os.environ.get('MIN_SAVINGS_DEFER', 15)),
+            'max_defer_hours': int(os.environ.get('MAX_DEFER_HOURS', 24)),
+            'pipeline_timeout': int(os.environ.get('CODEPIPELINE_TIMEOUT', 30))
+        },
+        
+        # Metadata
+        'created_at': datetime.now(timezone.utc).isoformat(),
+    }
+    
+    # Try to store in DynamoDB (if available)
+    try:
+        # Import storage module (create if doesn't exist)
+        sys.path.insert(0, str(Path(__file__).parent / 'lambda' / 'api'))
+        from pipeline_storage import store_pipeline_execution_data
+        
+        success = store_pipeline_execution_data(execution_record)
+        if success:
+            print(f"   ✅ Stored execution data in DynamoDB")
+        else:
+            print(f"   ⚠ Failed to store in DynamoDB (continuing with file storage)")
+    except ImportError:
+        print(f"   ⚠ DynamoDB storage not available (lambda/api/pipeline_storage.py not found)")
+        print(f"   💡 Deploy infrastructure first: deploy_monitoring.bat")
+    except Exception as e:
+        print(f"   ⚠ DynamoDB storage failed: {e}")
+        if "ResourceNotFoundException" in str(e):
+            print(f"   💡 DynamoDB tables not found. Deploy infrastructure first: deploy_monitoring.bat")
+    
+    # Create simplified result for dashboard file (backward compatibility)
     result = {
-        'test_id': f"real-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'test_id': execution_record['execution_id'],
+        'timestamp': execution_record['created_at'],
         'test_suite': f"Pipeline: {pipeline_name}",
         'duration_minutes': duration_minutes,
         'vcpu_count': vcpu_count,

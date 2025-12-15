@@ -106,26 +106,35 @@ const state = {
     totalCarbonSaved: 0,
     testsOptimized: 0,
     liveSourceCount: 0,
-    dataSources: new Set()
+    dataSources: new Set(),
+    pipelineHistory: [],
+    testHistory: [],
+    // Pagination state
+    pagination: {
+        currentPage: 1,
+        itemsPerPage: 10,
+        totalItems: 0,
+        totalPages: 0,
+        filteredData: []
+    }
 };
 
-// Sample test history (fallback when API is not available)
-const SAMPLE_TESTS = [
-    { time: new Date(Date.now() - 15 * 60000), suite: 'Integration Tests', region: 'eu-north-1', intensity: 28, duration: '12m 34s', carbon: 8.2, savings: 42, status: 'optimized' },
-    { time: new Date(Date.now() - 30 * 60000), suite: 'Unit Tests', region: 'eu-west-3', intensity: 58, duration: '5m 12s', carbon: 3.1, savings: 28, status: 'optimized' },
-    { time: new Date(Date.now() - 45 * 60000), suite: 'E2E Tests', region: 'eu-west-2', intensity: 185, duration: '25m 48s', carbon: 45.2, savings: 0, status: 'deferred' },
-    { time: new Date(Date.now() - 90 * 60000), suite: 'Smoke Tests', region: 'eu-central-1', intensity: 365, duration: '3m 22s', carbon: 12.8, savings: 0, status: 'normal' },
-    { time: new Date(Date.now() - 180 * 60000), suite: 'Regression Suite', region: 'eu-north-1', intensity: 25, duration: '45m 10s', carbon: 28.5, savings: 65, status: 'optimized' }
-];
+// No sample test data - use only real data from API or generated test files
 
 // ============================================
 // Real Data API Functions
 // ============================================
 
-async function loadTestHistory(limit = 50) {
-    // First, try to use generated test data (from test_e2e_dummy.py)
+async function loadPipelineHistory(limit = 50) {
+    // First, try to use generated pipeline data (from test_e2e_dummy.py)
+    if (typeof PIPELINE_HISTORY_DATA !== 'undefined' && PIPELINE_HISTORY_DATA.length > 0) {
+        console.log(`✅ Loaded ${PIPELINE_HISTORY_DATA.length} pipeline entries from generated data`);
+        return PIPELINE_HISTORY_DATA.slice(0, limit);
+    }
+    
+    // Fallback to test history data if pipeline data not available
     if (typeof TEST_HISTORY_DATA !== 'undefined' && TEST_HISTORY_DATA.length > 0) {
-        console.log(`✅ Loaded ${TEST_HISTORY_DATA.length} test entries from generated data`);
+        console.log(`✅ Loaded ${TEST_HISTORY_DATA.length} pipeline entries from test data`);
         return TEST_HISTORY_DATA.slice(0, limit);
     }
     
@@ -136,16 +145,39 @@ async function loadTestHistory(limit = 50) {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             
             const data = await response.json();
-            console.log(`✅ Loaded ${data.tests?.length || 0} real test executions from API`);
-            return data.tests || [];
+            console.log(`✅ Loaded ${data.pipelines?.length || data.tests?.length || 0} real pipeline executions from API`);
+            return data.pipelines || data.tests || [];
         } catch (error) {
-            console.error('❌ Error loading test history:', error);
+            console.error('❌ Error loading pipeline history:', error);
         }
     }
     
-    // Fallback to sample data
-    console.log('ℹ️ Using sample test data (API not configured)');
-    return SAMPLE_TESTS;
+    // No fallback - return empty array to show proper empty state
+    console.log('ℹ️ No pipeline history data available (API not configured)');
+    return [];
+}
+
+function populatePipelineFilter(pipelines) {
+    const pipelineFilter = document.getElementById('pipeline-filter');
+    if (!pipelineFilter || !pipelines) return;
+    
+    // Get unique pipeline names
+    const uniquePipelines = [...new Set(pipelines.map(p => 
+        p.pipeline_name || p.test_suite || p.suite || 'Unknown'
+    ))].sort();
+    
+    // Clear existing options except "All Pipelines"
+    pipelineFilter.innerHTML = '<option value="all">All Pipelines</option>';
+    
+    // Add unique pipeline names
+    uniquePipelines.forEach(pipelineName => {
+        const option = document.createElement('option');
+        option.value = pipelineName;
+        option.textContent = pipelineName;
+        pipelineFilter.appendChild(option);
+    });
+    
+    console.log(`📋 Populated pipeline filter with ${uniquePipelines.length} unique pipelines`);
 }
 
 function calculateCarbonSavings(tests) {
@@ -272,6 +304,31 @@ const ElectricityMapsAPI = {
             return breakdown;
         } catch (error) {
             console.error(`❌ ElectricityMaps power breakdown error for ${region}:`, error);
+            return null;
+        }
+    },
+
+    async getForecast24h(region) {
+        try {
+            const response = await fetch(
+                `${this.baseUrl}/carbon-intensity/forecast?dataCenterRegion=${region}&dataCenterProvider=aws`,
+                { headers: { 'auth-token': this.token } }
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            
+            // Convert to format similar to UK API
+            const forecast = data.forecast.map(item => ({
+                from: item.datetime,
+                to: new Date(new Date(item.datetime).getTime() + 60 * 60 * 1000).toISOString(), // Add 1 hour
+                intensity: Math.round(item.carbonIntensity),
+                isEstimated: item.isEstimated || false
+            }));
+            
+            console.log(`✅ ElectricityMaps: ${region} forecast = ${forecast.length} data points`);
+            return forecast;
+        } catch (error) {
+            console.error(`❌ ElectricityMaps forecast error for ${region}:`, error);
             return null;
         }
     }
@@ -443,14 +500,28 @@ function getStatusBadge(intensity) {
 function getCarbonEquivalents(grams) {
     /**
      * Convert carbon grams to relatable real-world equivalents
+     * Sources: EPA, DEFRA, scientific studies
      */
     return {
-        carKm: (grams / 120).toFixed(1),           // 1 km by car = ~120g CO₂
-        phoneCharges: Math.round(grams / 8),       // 1 smartphone charge = ~8g CO₂
-        treeDays: (grams / 58).toFixed(1),         // 1 tree absorbs ~58g CO₂/day
-        coffeeCups: Math.round(grams / 21),        // 1 cup of coffee = ~21g CO₂
-        streamingHours: (grams / 55).toFixed(1),   // 1 hour streaming = ~55g CO₂
-        ledBulbHours: Math.round(grams / 0.5)      // 1 hour LED bulb = ~0.5g CO₂
+        // Transportation (EPA 2023 data)
+        carKm: (grams / 180).toFixed(1),           // 1 km by average car = ~180g CO₂ (was 120g - too low)
+        carMiles: (grams / 290).toFixed(1),        // 1 mile by average car = ~290g CO₂
+        
+        // Technology
+        phoneCharges: Math.round(grams / 8),       // 1 smartphone charge = ~8g CO₂ ✓
+        laptopHours: (grams / 50).toFixed(1),      // 1 hour laptop use = ~50g CO₂
+        
+        // Trees (USDA Forest Service data)
+        treesYear: (grams / 21000).toFixed(2),     // 1 tree absorbs ~21kg CO₂/year (was inconsistent)
+        treeDays: (grams / 58).toFixed(1),         // 1 tree absorbs ~58g CO₂/day ✓
+        
+        // Daily activities
+        coffeeCups: Math.round(grams / 21),        // 1 cup of coffee = ~21g CO₂ ✓
+        streamingHours: (grams / 36).toFixed(1),   // 1 hour HD streaming = ~36g CO₂ (was 55g - too high)
+        
+        // Energy
+        ledBulbHours: Math.round(grams / 0.5),     // 1 hour LED bulb = ~0.5g CO₂ ✓
+        kwh: (grams / 400).toFixed(2)              // 1 kWh electricity (UK grid avg) = ~400g CO₂
     };
 }
 
@@ -784,6 +855,10 @@ async function loadAllRegionData() {
                 state.forecast = ukForecast;
                 state.dataSources.add('UK Grid ESO');
                 
+                // Update optimal time chart with new forecast data
+                const selectedRegion = document.getElementById('optimal-time-region-select')?.value || 'eu-west-2';
+                renderOptimalTimeChart(selectedRegion);
+                
                 // Use UK Grid ESO real-time data for eu-west-2
                 const gridIntensity = ukForecast[0].intensity;
                 const renewablePct = regionConfig.aws_renewable_pct || 0.80;
@@ -905,8 +980,11 @@ async function loadAllRegionData() {
     }
     
     state.lastUpdated = new Date();
-    state.totalCarbonSaved = Math.round(Math.random() * 500 + 200);
-    state.testsOptimized = Math.round(Math.random() * 20 + 10);
+    // Remove mock data - calculate from real pipeline history
+    const tests = await loadPipelineHistory();
+    const savings = calculateCarbonSavings(tests);
+    state.totalCarbonSaved = savings.saved;
+    state.testsOptimized = savings.optimized;
     
     // Update sources display
     updateSourcesDisplay();
@@ -938,36 +1016,8 @@ function updateSummaryCards() {
     const avgIntensity = (regions.reduce((sum, r) => sum + r.intensity, 0) / regions.length).toFixed(1);
     const lowCarbonCount = regions.filter(r => r.intensity <= THRESHOLDS.LOW).length;
     
-    // Update stats - typographic style (numbers only, no units in value)
-    document.getElementById('lowest-intensity').textContent = lowest.intensity;
-    document.getElementById('lowest-region').textContent = `${lowest.name} · ${lowest.location}`;
-    document.getElementById('avg-intensity').textContent = avgIntensity;
-    document.getElementById('avg-regions').textContent = `${regions.length} regions monitored`;
-    
-    // Recommendation - text-based, no emojis
-    let rec, reason;
-    if (lowest.intensity <= THRESHOLDS.LOW) {
-        rec = 'Run Now';
-        reason = `Optimal: ${lowest.location}`;
-    } else if (lowest.intensity <= THRESHOLDS.MODERATE) {
-        rec = 'Check Forecast';
-        reason = 'Better window may exist';
-    } else {
-        rec = 'Defer';
-        reason = 'High intensity across EU';
-    }
-    
-    document.getElementById('recommendation').textContent = rec;
-    document.getElementById('rec-reason').textContent = reason;
-    document.getElementById('carbon-saved').textContent = `${state.totalCarbonSaved}g`;
-    document.getElementById('tests-optimized').textContent = `${state.testsOptimized} tests`;
-    
-    // Add carbon equivalent (compact inline version)
-    const equivalents = getCarbonEquivalents(state.totalCarbonSaved);
-    const equivalentEl = document.getElementById('carbon-equivalent');
-    if (equivalentEl) {
-        equivalentEl.textContent = `🚗 ${equivalents.carKm} km · 📱 ${equivalents.phoneCharges} charges`;
-    }
+    // Update Impact Summary
+    updateImpactSummary();
     
     // Status
     document.getElementById('live-count').textContent = `${state.liveSourceCount} live`;
@@ -977,35 +1027,161 @@ function updateSummaryCards() {
     updateInsights(lowest, highest, avgIntensity, lowCarbonCount, regions.length);
 }
 
+async function updateImpactSummary() {
+    // Load actual pipeline history to calculate real savings
+    const tests = await loadPipelineHistory();
+    
+    if (tests.length === 0) {
+        // No test data available - show empty state
+        const monthlySavedEl = document.getElementById('monthly-carbon-saved');
+        const drivingEl = document.getElementById('equivalent-driving');
+        const treesEl = document.getElementById('equivalent-trees');
+        
+        if (monthlySavedEl) monthlySavedEl.textContent = 'No data yet';
+        if (drivingEl) drivingEl.textContent = 'Run tests to see impact';
+        if (treesEl) treesEl.textContent = 'No data yet';
+        return;
+    }
+    
+    // Calculate actual savings from test history
+    const savings = calculateCarbonSavings(tests);
+    const monthlySavingsG = savings.saved;
+    const monthlySavingsKg = (monthlySavingsG / 1000).toFixed(1);
+    
+    // Update main savings display
+    const monthlySavedEl = document.getElementById('monthly-carbon-saved');
+    if (monthlySavedEl) {
+        if (monthlySavingsG > 0) {
+            monthlySavedEl.textContent = `${monthlySavingsKg}kg of CO₂`;
+        } else {
+            monthlySavedEl.textContent = 'No savings yet';
+        }
+    }
+    
+    // Calculate real-world equivalents only if there are savings
+    if (monthlySavingsG > 0) {
+        const equivalents = getCarbonEquivalents(monthlySavingsG);
+        
+        // Update driving equivalent
+        const drivingEl = document.getElementById('equivalent-driving');
+        if (drivingEl) {
+            drivingEl.textContent = `${Math.round(parseFloat(equivalents.carKm))} km`;
+        }
+        
+        // Update trees equivalent
+        const treesEl = document.getElementById('equivalent-trees');
+        if (treesEl) {
+            // Trees absorb about 21kg CO₂ per year
+            // For monthly savings, calculate how many trees would absorb this amount in a year
+            const treesNeeded = monthlySavingsG / 21000; // grams to kg conversion
+            
+            if (treesNeeded < 0.1) {
+                treesEl.textContent = `${Math.round(treesNeeded * 365)} tree-days`;
+            } else if (treesNeeded < 1) {
+                treesEl.textContent = `${treesNeeded.toFixed(1)} trees`;
+            } else {
+                treesEl.textContent = `${Math.round(treesNeeded)} trees`;
+            }
+        }
+    } else {
+        // No savings yet
+        const drivingEl = document.getElementById('equivalent-driving');
+        const treesEl = document.getElementById('equivalent-trees');
+        
+        if (drivingEl) drivingEl.textContent = 'Run optimized tests to see impact';
+        if (treesEl) treesEl.textContent = 'No savings yet';
+    }
+}
+
 function updateInsights(lowest, highest, avgIntensity, lowCarbonCount, totalRegions) {
-    // Best region now
-    const bestRegionEl = document.getElementById('insight-best-region');
-    const bestIntensityEl = document.getElementById('insight-best-intensity');
-    if (bestRegionEl && bestIntensityEl) {
-        bestRegionEl.textContent = lowest.location;
-        bestIntensityEl.textContent = `${lowest.intensity.toFixed(1)} gCO₂/kWh`;
+    // Update the new combined region optimizer
+    updateRegionComparison();
+    
+    // Removed elements - no longer updating:
+    // - insight-best-region (now part of region optimizer)
+    // - insight-savings (now part of region optimizer)
+    // - insight-low-count (Low Carbon Regions card removed)
+    // - insight-avg (Average Intensity card removed)
+}
+
+function updateRegionComparison() {
+    const regionSelect = document.getElementById('comparison-region-select');
+    const currentIntensityEl = document.getElementById('current-region-intensity');
+    const bestRegionNameEl = document.getElementById('best-region-name');
+    const bestRegionFlagEl = document.getElementById('best-region-flag');
+    const bestIntensityEl = document.getElementById('best-region-intensity');
+    const savingsPercentageEl = document.getElementById('savings-percentage');
+    const savingsExplanationEl = document.getElementById('savings-explanation');
+    const savingsBadgeEl = document.getElementById('savings-badge');
+    
+    if (!regionSelect) return;
+    
+    const selectedRegionCode = regionSelect.value;
+    const regions = Object.values(state.regions);
+    
+    if (regions.length === 0) {
+        if (currentIntensityEl) currentIntensityEl.textContent = 'Loading...';
+        if (bestRegionNameEl) bestRegionNameEl.textContent = 'Loading...';
+        if (bestIntensityEl) bestIntensityEl.textContent = 'Loading...';
+        if (savingsPercentageEl) savingsPercentageEl.textContent = 'Loading...';
+        if (savingsExplanationEl) savingsExplanationEl.textContent = 'Loading region comparison data...';
+        return;
     }
     
-    // Potential savings
-    const savingsEl = document.getElementById('insight-savings');
-    if (savingsEl) {
-        const savingsPercent = Math.round(((highest.intensity - lowest.intensity) / highest.intensity) * 100);
-        savingsEl.textContent = `${savingsPercent}%`;
+    // Find the selected region and the best (lowest intensity) region
+    const selectedRegion = regions.find(r => r.name === selectedRegionCode);
+    const bestRegion = regions.reduce((min, r) => r.intensity < min.intensity ? r : min);
+    
+    if (!selectedRegion) return;
+    
+    // Update current region display
+    if (currentIntensityEl) {
+        currentIntensityEl.textContent = Math.round(selectedRegion.intensity);
     }
     
-    // Low carbon regions
-    const lowCountEl = document.getElementById('insight-low-count');
-    if (lowCountEl) {
-        lowCountEl.textContent = `${lowCarbonCount}/${totalRegions}`;
+    // Update best region display
+    if (bestRegionNameEl) {
+        bestRegionNameEl.textContent = bestRegion.name;
+    }
+    if (bestIntensityEl) {
+        bestIntensityEl.textContent = Math.round(bestRegion.intensity);
     }
     
-    // Average intensity
-    const avgEl = document.getElementById('insight-avg');
-    const avgDetailEl = document.getElementById('insight-avg-detail');
-    if (avgEl && avgDetailEl) {
-        avgEl.textContent = avgIntensity;
-        avgDetailEl.textContent = 'gCO₂/kWh average';
+    // Calculate and display savings
+    const savingsPercent = Math.round(((selectedRegion.intensity - bestRegion.intensity) / selectedRegion.intensity) * 100);
+    
+    if (savingsPercent <= 0) {
+        // Already optimal
+        if (savingsPercentageEl) savingsPercentageEl.textContent = '0%';
+        if (savingsExplanationEl) {
+            savingsExplanationEl.textContent = `${selectedRegion.name} is already the cleanest option available!`;
+        }
+        if (savingsBadgeEl) {
+            savingsBadgeEl.innerHTML = `
+                <span class="savings-text">
+                    <strong>Already optimal</strong> - cleanest region
+                </span>
+            `;
+        }
+    } else {
+        // Show potential savings
+        if (savingsPercentageEl) savingsPercentageEl.textContent = `${savingsPercent}%`;
+        if (savingsExplanationEl) {
+            savingsExplanationEl.textContent = `By switching from ${selectedRegion.name} to ${bestRegion.name}, you could reduce your environmental impact by ${savingsPercent}%`;
+        }
+        if (savingsBadgeEl) {
+            savingsBadgeEl.innerHTML = `
+                <span class="savings-text">
+                    <strong>${savingsPercent}%</strong> less carbon emissions
+                </span>
+            `;
+        }
     }
+}
+
+// Legacy function for backward compatibility
+function updatePotentialSavings() {
+    updateRegionComparison();
 }
 
 
@@ -1116,59 +1292,860 @@ function renderGlobalRegionGrid(regions) {
     console.log(`✅ Rendered ${sortedRegions.length} global regions`);
 }
 
-function renderHistoryTable(tests) {
-    const tbody = document.getElementById('history-table');
-    tbody.innerHTML = '';
-    
+// ============================================
+// Enhanced Test History Analytics
+// ============================================
+
+function calculateHistoryMetrics(tests) {
     if (!tests || tests.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="8" style="text-align: center; padding: 40px; color: var(--grey-500);">
-                    <div style="font-size: 16px; margin-bottom: 8px;">No test history yet</div>
-                    <div style="font-size: 14px;">Run tests via CI/CD to see execution data here</div>
-                </td>
-            </tr>
-        `;
+        return {
+            baseline: { carbon: 0, commits: 0 },
+            latest: { carbon: 0, commits: 0 },
+            trend: { direction: 'stable', change: 0 },
+            regressions: 0
+        };
+    }
+    
+    // Sort tests by timestamp
+    const sortedTests = tests.sort((a, b) => new Date(a.timestamp || a.time) - new Date(b.timestamp || b.time));
+    
+    // Calculate baseline (first 5 tests average)
+    const baselineTests = sortedTests.slice(0, Math.min(5, sortedTests.length));
+    const baselineCarbon = baselineTests.reduce((sum, test) => sum + (test.carbon_g || test.carbon || 0), 0) / baselineTests.length;
+    
+    // Latest test
+    const latestTest = sortedTests[sortedTests.length - 1];
+    const latestCarbon = latestTest.carbon_g || latestTest.carbon || 0;
+    
+    // Trend calculation (last 5 vs previous 5)
+    const recentTests = sortedTests.slice(-5);
+    const previousTests = sortedTests.slice(-10, -5);
+    
+    const recentAvg = recentTests.reduce((sum, test) => sum + (test.carbon_g || test.carbon || 0), 0) / recentTests.length;
+    const previousAvg = previousTests.length > 0 
+        ? previousTests.reduce((sum, test) => sum + (test.carbon_g || test.carbon || 0), 0) / previousTests.length
+        : baselineCarbon;
+    
+    const trendChange = recentAvg - previousAvg;
+    const trendDirection = Math.abs(trendChange) < 5 ? 'stable' : (trendChange < 0 ? 'improving' : 'degrading');
+    
+    // Count regressions (tests significantly above baseline)
+    const regressionThreshold = baselineCarbon * 1.2; // 20% above baseline
+    const regressions = sortedTests.filter(test => {
+        const carbon = test.carbon_g || test.carbon || 0;
+        return carbon > regressionThreshold;
+    }).length;
+    
+    console.log(`📊 Metrics calculated for ${sortedTests.length} pipelines: baseline=${baselineCarbon.toFixed(2)}mg, regressions=${regressions} (threshold=${regressionThreshold.toFixed(2)}mg)`);
+    
+    return {
+        baseline: { carbon: baselineCarbon, commits: baselineTests.length },
+        latest: { carbon: latestCarbon, commits: 1 },
+        trend: { direction: trendDirection, change: trendChange },
+        regressions
+    };
+}
+
+function renderHistoryMetrics(pipelines) {
+    const metrics = calculateHistoryMetrics(pipelines);
+    
+    // Update baseline
+    const baselineEl = document.getElementById('baseline-carbon');
+    const baselineCommitsEl = document.getElementById('baseline-commits');
+    if (baselineEl) baselineEl.textContent = `${metrics.baseline.carbon.toFixed(1)} mg`;
+    if (baselineCommitsEl) baselineCommitsEl.textContent = `${metrics.baseline.commits} pipelines`;
+    
+    // Update latest
+    const latestEl = document.getElementById('latest-carbon');
+    const latestCommitsEl = document.getElementById('latest-commits');
+    if (latestEl) latestEl.textContent = `${metrics.latest.carbon.toFixed(1)} mg`;
+    if (latestCommitsEl) latestCommitsEl.textContent = `${metrics.latest.commits} pipelines`;
+    
+    // Update trend
+    const trendEl = document.getElementById('trend-direction');
+    const trendChangeEl = document.getElementById('trend-change');
+    if (trendEl) {
+        trendEl.textContent = metrics.trend.direction === 'improving' ? 'Improving' : 
+                             metrics.trend.direction === 'degrading' ? 'Degrading' : 'Stable';
+        trendEl.className = `metric-value trend ${metrics.trend.direction}`;
+    }
+    if (trendChangeEl) {
+        const changeText = metrics.trend.change >= 0 ? `+${metrics.trend.change.toFixed(1)}` : metrics.trend.change.toFixed(1);
+        trendChangeEl.textContent = `${changeText} mg/pipeline`;
+    }
+    
+    // Update regressions with visual warning
+    const regressionsEl = document.getElementById('regressions-count');
+    if (regressionsEl) {
+        regressionsEl.textContent = metrics.regressions.toString();
+        
+        // Add visual warning styling for regressions
+        const regressionCard = regressionsEl.closest('.metric-card');
+        if (regressionCard) {
+            if (metrics.regressions > 0) {
+                regressionCard.classList.add('has-regressions');
+                regressionCard.title = `${metrics.regressions} pipeline${metrics.regressions > 1 ? 's' : ''} with carbon emissions >20% above baseline`;
+            } else {
+                regressionCard.classList.remove('has-regressions');
+                regressionCard.title = 'No carbon regressions detected';
+            }
+        }
+    }
+}
+
+function renderTrendChart(tests, pipelineFilter = 'all') {
+    const canvas = document.getElementById('trend-canvas');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Filter tests by pipeline if specified
+    let filteredTests = tests || [];
+    if (pipelineFilter && pipelineFilter !== 'all') {
+        filteredTests = filteredTests.filter(test => 
+            (test.pipeline_name || test.test_suite || test.suite || 'Unknown') === pipelineFilter
+        );
+    }
+    
+    if (filteredTests.length === 0) {
+        // Show empty state
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(0, 0, width, height);
+        
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(pipelineFilter !== 'all' ? `No data for ${pipelineFilter}` : 'No pipeline data available', width / 2, height / 2);
         return;
     }
     
-    // Calculate max intensity for savings calculation
-    const regions = Object.values(state.regions);
-    const maxIntensity = regions.length > 0 ? Math.max(...regions.map(r => r.intensity)) : 400;
+    // Better use of horizontal space - reduce padding for more chart area
+    const padding = { top: 40, right: 40, bottom: 50, left: 70 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
     
-    tests.forEach(test => {
-        const row = document.createElement('tr');
-        
-        // Handle both API format and sample format
-        const timestamp = test.timestamp || test.time;
-        const testName = test.test_name || test.suite || 'Test Suite';
-        const region = test.region || test.region_id || 'unknown';
-        const intensity = test.carbon_intensity || test.intensity || 0;
-        const durationSec = test.duration_seconds || 0;
-        const carbonG = test.carbon_g || test.carbon || 0;
-        const status = test.status || 'completed';
-        
-        // Format duration
-        const durationMin = Math.floor(durationSec / 60);
-        const durationRemainSec = durationSec % 60;
-        const durationStr = test.duration || `${durationMin}m ${durationRemainSec}s`;
-        
-        // Calculate savings percentage
-        const savingsPercent = intensity > 0 ? Math.round(((maxIntensity - intensity) / maxIntensity) * 100) : 0;
-        
-        row.innerHTML = `
-            <td class="mono">${formatDateTime(timestamp)}</td>
-            <td>${testName}</td>
-            <td class="mono">${region}</td>
-            <td class="mono">${intensity}</td>
-            <td class="mono">${durationStr}</td>
-            <td class="mono">${carbonG.toFixed(1)}g</td>
-            <td>${savingsPercent > 0 ? `<span class="savings-positive">−${savingsPercent}%</span>` : '—'}</td>
-            <td><span class="status-text ${status}">${status}</span></td>
-        `;
-        tbody.appendChild(row);
+    // Clear canvas with white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Use more data points for better trend analysis (last 20 tests)
+    const recentTests = filteredTests.slice(-20);
+    const carbonValues = recentTests.map(test => test.carbon_g || test.carbon || 0);
+    const maxCarbon = Math.max(...carbonValues);
+    const minCarbon = Math.min(...carbonValues);
+    const range = Math.max(maxCarbon - minCarbon, 0.5);
+    
+    // Add some padding to the range for better visualization
+    const paddedMin = minCarbon - range * 0.1;
+    const paddedMax = maxCarbon + range * 0.1;
+    const paddedRange = paddedMax - paddedMin;
+    
+    // Calculate baseline from FILTERED data (not all tests)
+    const baselineData = filteredTests.length >= 5 ? filteredTests.slice(0, 5) : filteredTests;
+    const baseline = baselineData.length > 0 ? 
+        baselineData.reduce((sum, test) => sum + (test.carbon_g || test.carbon || 0), 0) / baselineData.length : 0;
+    
+    // Draw subtle grid lines
+    ctx.strokeStyle = '#f1f5f9';
+    ctx.lineWidth = 1;
+    
+    // Horizontal grid lines
+    for (let i = 0; i <= 4; i++) {
+        const y = padding.top + (chartHeight / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(padding.left + chartWidth, y);
+        ctx.stroke();
+    }
+    
+    // Vertical grid lines
+    for (let i = 0; i <= 6; i++) {
+        const x = padding.left + (chartWidth / 6) * i;
+        ctx.beginPath();
+        ctx.moveTo(x, padding.top);
+        ctx.lineTo(x, padding.top + chartHeight);
+        ctx.stroke();
+    }
+    
+    // Draw Y-axis labels
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    
+    for (let i = 0; i <= 4; i++) {
+        const y = padding.top + (chartHeight / 4) * i;
+        const value = paddedMax - (paddedRange / 4) * i;
+        ctx.fillText(value.toFixed(1), padding.left - 10, y);
+    }
+    
+    // Draw X-axis labels (time indicators)
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    
+    recentTests.forEach((test, index) => {
+        if (index % 2 === 0) { // Show every other label to avoid crowding
+            const x = padding.left + (index / (recentTests.length - 1)) * chartWidth;
+            const timestamp = new Date(test.timestamp || test.time);
+            const timeLabel = timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            ctx.fillText(timeLabel, x, padding.top + chartHeight + 10);
+        }
     });
+    
+    // Draw baseline line with subtle styling
+    const baselineY = padding.top + chartHeight - ((baseline - paddedMin) / paddedRange) * chartHeight;
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath();
+    ctx.moveTo(padding.left, baselineY);
+    ctx.lineTo(padding.left + chartWidth, baselineY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Draw baseline label
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('Baseline', padding.left + 5, baselineY - 5);
+    
+    // Create gradient for area under curve
+    const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
+    gradient.addColorStop(0, 'rgba(16, 185, 129, 0.1)');
+    gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+    
+    // Draw area under curve
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    
+    recentTests.forEach((test, index) => {
+        const x = padding.left + (index / (recentTests.length - 1)) * chartWidth;
+        const carbon = test.carbon_g || test.carbon || 0;
+        const y = padding.top + chartHeight - ((carbon - paddedMin) / paddedRange) * chartHeight;
+        
+        if (index === 0) {
+            ctx.moveTo(x, padding.top + chartHeight);
+            ctx.lineTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    
+    ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
+    ctx.lineTo(padding.left, padding.top + chartHeight);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw main trend line with smooth curves
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    
+    recentTests.forEach((test, index) => {
+        const x = padding.left + (index / (recentTests.length - 1)) * chartWidth;
+        const carbon = test.carbon_g || test.carbon || 0;
+        const y = padding.top + chartHeight - ((carbon - paddedMin) / paddedRange) * chartHeight;
+        
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            // Use straight lines instead of curves
+            ctx.lineTo(x, y);
+        }
+    });
+    
+    ctx.stroke();
+    
+    // Draw enhanced data points
+    recentTests.forEach((test, index) => {
+        const x = padding.left + (index / (recentTests.length - 1)) * chartWidth;
+        const carbon = test.carbon_g || test.carbon || 0;
+        const y = padding.top + chartHeight - ((carbon - paddedMin) / paddedRange) * chartHeight;
+        
+        // Determine point color based on performance vs baseline
+        const isAboveBaseline = carbon > baseline * 1.1;
+        const isBelowBaseline = carbon < baseline * 0.9;
+        
+        // Draw outer ring (white)
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Draw inner point with status color
+        if (isAboveBaseline) {
+            ctx.fillStyle = '#ef4444'; // Red for high carbon
+        } else if (isBelowBaseline) {
+            ctx.fillStyle = '#10b981'; // Green for low carbon
+        } else {
+            ctx.fillStyle = '#64748b'; // Gray for baseline
+        }
+        
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Add subtle shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+        ctx.shadowBlur = 2;
+        ctx.shadowOffsetY = 1;
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+    });
+    
+    // Draw chart title and legend
+    ctx.fillStyle = '#1f2937';
+    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    
+    // Show pipeline name in title if filtered
+    const chartTitle = pipelineFilter && pipelineFilter !== 'all' 
+        ? `Carbon Trend: ${pipelineFilter.length > 30 ? pipelineFilter.substring(0, 30) + '...' : pipelineFilter}`
+        : 'Carbon Emissions Trend (All Pipelines)';
+    ctx.fillText(chartTitle, padding.left, 8);
+    
+    // Draw legend
+    const legendY = 8;
+    const legendStartX = width - 200;
+    
+    // Energy line legend
+    ctx.fillStyle = '#10b981';
+    ctx.fillRect(legendStartX, legendY + 2, 12, 2);
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Energy', legendStartX + 18, legendY);
+    
+    // Baseline legend
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 2]);
+    ctx.beginPath();
+    ctx.moveTo(legendStartX + 70, legendY + 3);
+    ctx.lineTo(legendStartX + 82, legendY + 3);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillText('Baseline', legendStartX + 88, legendY);
+    
+    console.log(`📊 Rendered enhanced trend chart with ${recentTests.length} data points`);
 }
+
+// Enhanced trend chart with animation support
+function renderTrendChartAnimated(tests, pipelineFilter = 'all') {
+    const canvas = document.getElementById('trend-canvas');
+    if (!canvas || !tests || tests.length === 0) {
+        renderTrendChart(tests, pipelineFilter);
+        return;
+    }
+    
+    // Filter tests by pipeline if specified
+    let filteredTests = tests;
+    if (pipelineFilter && pipelineFilter !== 'all') {
+        filteredTests = tests.filter(test => 
+            (test.pipeline_name || test.test_suite || test.suite || 'Unknown') === pipelineFilter
+        );
+    }
+    
+    if (filteredTests.length === 0) {
+        renderTrendChart(tests, pipelineFilter);
+        return;
+    }
+    
+    // Set up animation
+    let animationProgress = 0;
+    const animationDuration = 800; // ms
+    const startTime = Date.now();
+    
+    function animate() {
+        const elapsed = Date.now() - startTime;
+        animationProgress = Math.min(elapsed / animationDuration, 1);
+        
+        // Use easing function for smooth animation
+        const easeProgress = 1 - Math.pow(1 - animationProgress, 3);
+        
+        // Render chart with current progress
+        renderTrendChartWithProgress(filteredTests, easeProgress, pipelineFilter);
+        
+        if (animationProgress < 1) {
+            requestAnimationFrame(animate);
+        }
+    }
+    
+    animate();
+}
+
+function renderTrendChartWithProgress(tests, progress, pipelineFilter = 'all') {
+    const canvas = document.getElementById('trend-canvas');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = { top: 40, right: 40, bottom: 50, left: 70 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    
+    // Filter tests by pipeline if specified
+    let filteredTests = tests || [];
+    if (pipelineFilter && pipelineFilter !== 'all') {
+        filteredTests = filteredTests.filter(test => 
+            (test.pipeline_name || test.test_suite || test.suite || 'Unknown') === pipelineFilter
+        );
+    }
+    
+    // Clear canvas
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    
+    const recentTests = filteredTests.slice(-20);
+    const carbonValues = recentTests.map(test => test.carbon_g || test.carbon || 0);
+    const maxCarbon = Math.max(...carbonValues);
+    const minCarbon = Math.min(...carbonValues);
+    const range = Math.max(maxCarbon - minCarbon, 1);
+    const paddedMin = minCarbon - range * 0.1;
+    const paddedMax = maxCarbon + range * 0.1;
+    const paddedRange = paddedMax - paddedMin;
+    // Calculate baseline from FILTERED data
+    const baselineData = filteredTests.length >= 5 ? filteredTests.slice(0, 5) : filteredTests;
+    const baseline = baselineData.length > 0 ? 
+        baselineData.reduce((sum, test) => sum + (test.carbon_g || test.carbon || 0), 0) / baselineData.length : 0;
+    
+    // Draw static elements (grid, labels) at full opacity
+    ctx.globalAlpha = 1;
+    
+    // Grid lines
+    ctx.strokeStyle = '#f1f5f9';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+        const y = padding.top + (chartHeight / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(padding.left + chartWidth, y);
+        ctx.stroke();
+    }
+    
+    // Y-axis labels
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i <= 4; i++) {
+        const y = padding.top + (chartHeight / 4) * i;
+        const value = paddedMax - (paddedRange / 4) * i;
+        ctx.fillText(value.toFixed(1), padding.left - 10, y);
+    }
+    
+    // Animate the data visualization
+    ctx.globalAlpha = progress;
+    
+    // Baseline line
+    const baselineY = padding.top + chartHeight - ((baseline - paddedMin) / paddedRange) * chartHeight;
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath();
+    ctx.moveTo(padding.left, baselineY);
+    ctx.lineTo(padding.left + chartWidth * progress, baselineY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Area under curve
+    const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
+    gradient.addColorStop(0, 'rgba(16, 185, 129, 0.1)');
+    gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    
+    const visiblePoints = Math.floor(recentTests.length * progress);
+    for (let i = 0; i <= visiblePoints; i++) {
+        if (i >= recentTests.length) break;
+        
+        const test = recentTests[i];
+        const x = padding.left + (i / (recentTests.length - 1)) * chartWidth;
+        const carbon = test.carbon_g || test.carbon || 0;
+        const y = padding.top + chartHeight - ((carbon - paddedMin) / paddedRange) * chartHeight;
+        
+        if (i === 0) {
+            ctx.moveTo(x, padding.top + chartHeight);
+            ctx.lineTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    }
+    
+    if (visiblePoints > 0) {
+        const lastX = padding.left + (visiblePoints / (recentTests.length - 1)) * chartWidth;
+        ctx.lineTo(lastX, padding.top + chartHeight);
+        ctx.lineTo(padding.left, padding.top + chartHeight);
+        ctx.closePath();
+        ctx.fill();
+    }
+    
+    // Trend line
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    
+    for (let i = 0; i <= visiblePoints; i++) {
+        if (i >= recentTests.length) break;
+        
+        const test = recentTests[i];
+        const x = padding.left + (i / (recentTests.length - 1)) * chartWidth;
+        const carbon = test.carbon_g || test.carbon || 0;
+        const y = padding.top + chartHeight - ((carbon - paddedMin) / paddedRange) * chartHeight;
+        
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            // Use straight lines instead of curves
+            ctx.lineTo(x, y);
+        }
+    }
+    ctx.stroke();
+    
+    // Data points
+    for (let i = 0; i <= visiblePoints; i++) {
+        if (i >= recentTests.length) break;
+        
+        const test = recentTests[i];
+        const x = padding.left + (i / (recentTests.length - 1)) * chartWidth;
+        const carbon = test.carbon_g || test.carbon || 0;
+        const y = padding.top + chartHeight - ((carbon - paddedMin) / paddedRange) * chartHeight;
+        
+        const isAboveBaseline = carbon > baseline * 1.1;
+        const isBelowBaseline = carbon < baseline * 0.9;
+        
+        // Animate point scale
+        const pointScale = Math.min(1, (progress * recentTests.length - i) * 2);
+        if (pointScale <= 0) continue;
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y, 6 * pointScale, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        if (isAboveBaseline) {
+            ctx.fillStyle = '#ef4444';
+        } else if (isBelowBaseline) {
+            ctx.fillStyle = '#10b981';
+        } else {
+            ctx.fillStyle = '#64748b';
+        }
+        
+        ctx.beginPath();
+        ctx.arc(x, y, 4 * pointScale, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+    
+    // Reset alpha
+    ctx.globalAlpha = 1;
+    
+    // Title and legend (always visible)
+    ctx.fillStyle = '#1f2937';
+    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('Carbon Emissions Trend', padding.left, 8);
+}
+
+function renderPipelineCards(pipelines) {
+    const container = document.getElementById('cards-view');
+    if (!container || !pipelines || pipelines.length === 0) {
+        if (container) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: var(--grey-500);">
+                    <div style="font-size: 16px; margin-bottom: 8px;">No pipeline history yet</div>
+                    <div style="font-size: 14px;">Run pipelines via CI/CD to see execution data here</div>
+                </div>
+            `;
+        }
+        return;
+    }
+    
+    // Show all pipelines in cards view, most recent first
+    const sortedPipelines = [...pipelines].reverse();
+    const baseline = pipelines.slice(0, 5).reduce((sum, pipeline) => sum + (pipeline.carbon_g || pipeline.carbon || 0), 0) / 5;
+    
+    container.innerHTML = sortedPipelines.map(pipeline => {
+        const carbon = pipeline.carbon_g || pipeline.carbon || 0;
+        const energy = pipeline.energy_j || (carbon * 1000) || 0; // Estimate if not available
+        const changePercent = baseline > 0 ? ((carbon - baseline) / baseline) * 100 : 0;
+        const status = Math.abs(changePercent) < 10 ? 'stable' : (changePercent > 20 ? 'critical' : 'stable');
+        
+        // Generate pipeline ID
+        const pipelineId = pipeline.pipeline_id || pipeline.test_id || `pipeline-${Math.random().toString(36).substr(2, 6)}`;
+        const shortId = pipelineId.substring(0, 8);
+        
+        return `
+            <div class="commit-row">
+                <div>
+                    <div class="commit-id">${shortId}</div>
+                    <div class="commit-date">${formatDateTime(pipeline.timestamp || pipeline.time)}</div>
+                </div>
+                <div class="commit-metrics">
+                    <div class="commit-metric">
+                        <div class="commit-metric-label">Energy</div>
+                        <div class="commit-metric-value">${(energy / 1000).toFixed(0)} J</div>
+                    </div>
+                    <div class="commit-metric">
+                        <div class="commit-metric-label">Carbon</div>
+                        <div class="commit-metric-value">${carbon.toFixed(1)} mg</div>
+                    </div>
+                </div>
+                <div class="commit-change ${changePercent >= 0 ? 'negative' : 'positive'}">
+                    ${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(1)}%
+                </div>
+                <div class="commit-status ${status}">${status}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderPipelineHistoryTable(pipelines) {
+    // Store in state for export
+    state.pipelineHistory = pipelines;
+    
+    // Populate pipeline filter dropdowns
+    populatePipelineFilter(pipelines);
+    populateTrendPipelineFilter(pipelines);
+    
+    // Get current pipeline filter value
+    const pipelineFilter = document.getElementById('pipeline-filter')?.value || 'all';
+    
+    // Filter data for metrics and chart if a specific pipeline is selected
+    let filteredForMetrics = pipelines;
+    if (pipelineFilter !== 'all') {
+        filteredForMetrics = pipelines.filter(p => 
+            (p.pipeline_name || p.test_suite || p.suite || 'Unknown') === pipelineFilter
+        );
+    }
+    
+    // Render all analytics components with filtered data
+    renderHistoryMetrics(filteredForMetrics.length > 0 ? filteredForMetrics : pipelines);
+    renderTrendChartAnimated(pipelines, pipelineFilter);
+    
+    // Render both table and cards views (will be filtered by filterHistory if needed)
+    renderPipelineTable(pipelines);
+    renderPipelineCards(pipelines);
+    
+    // Apply any existing filters
+    if (pipelineFilter !== 'all') {
+        filterHistory();
+    }
+}
+
+function renderPipelineTable(pipelines) {
+    // Sort pipelines by descending time (most recent first)
+    const sortedPipelines = [...pipelines].sort((a, b) => {
+        const timeA = new Date(a.timestamp || a.time || 0);
+        const timeB = new Date(b.timestamp || b.time || 0);
+        return timeB - timeA; // Descending order
+    });
+    
+    // Store sorted data for pagination
+    state.pagination.filteredData = sortedPipelines;
+    state.pagination.totalItems = sortedPipelines.length;
+    state.pagination.totalPages = Math.ceil(sortedPipelines.length / state.pagination.itemsPerPage);
+    
+    // Ensure current page is valid
+    if (state.pagination.currentPage > state.pagination.totalPages) {
+        state.pagination.currentPage = Math.max(1, state.pagination.totalPages);
+    }
+    
+    // Get current page data
+    const startIndex = (state.pagination.currentPage - 1) * state.pagination.itemsPerPage;
+    const endIndex = startIndex + state.pagination.itemsPerPage;
+    const currentPageData = sortedPipelines.slice(startIndex, endIndex);
+    
+    // Render table
+    const tbody = document.getElementById('history-table');
+    if (!tbody) return;
+    
+    if (!pipelines || pipelines.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="10" style="text-align: center; padding: 40px; color: var(--grey-500);">
+                    <div style="font-size: 16px; margin-bottom: 8px;">No pipeline history yet</div>
+                    <div style="font-size: 14px;">Run pipelines via CI/CD to see execution data here</div>
+                </td>
+            </tr>
+        `;
+        // Hide pagination for empty state
+        const paginationContainer = document.getElementById('pagination-container');
+        if (paginationContainer) paginationContainer.style.display = 'none';
+        return;
+    }
+    
+    // Calculate baseline for comparison (from all data, not just current page)
+    const baseline = sortedPipelines.slice(0, 5).reduce((sum, pipeline) => sum + (pipeline.carbon_g || pipeline.carbon || 0), 0) / 5;
+    
+    tbody.innerHTML = currentPageData.map(pipeline => {
+        const timestamp = pipeline.timestamp || pipeline.time;
+        const pipelineName = pipeline.pipeline_name || pipeline.test_suite || pipeline.suite || 'CI/CD Pipeline';
+        const region = pipeline.optimal_region || pipeline.region || 'eu-west-2';
+        const intensity = pipeline.optimal_intensity || pipeline.intensity || 0;
+        const duration = pipeline.duration_minutes ? `${pipeline.duration_minutes}m` : (pipeline.duration || '--');
+        const energy = pipeline.energy_j || (pipeline.carbon_g || pipeline.carbon || 0) * 1000; // Estimate if not available
+        const carbon = pipeline.optimal_sci || pipeline.carbon_g || pipeline.carbon || 0;
+        const status = pipeline.pipeline_status || pipeline.status || 'unknown';
+        
+        // Calculate vs baseline
+        const baselineChange = baseline > 0 ? ((carbon - baseline) / baseline) * 100 : 0;
+        const baselineDisplay = Math.abs(baselineChange) < 1 ? '—' : 
+            `<span class="commit-change ${baselineChange >= 0 ? 'negative' : 'positive'}">
+                ${baselineChange >= 0 ? '+' : ''}${baselineChange.toFixed(1)}%
+            </span>`;
+        
+        // Status styling for pipelines
+        let statusClass = 'status-normal';
+        let statusLabel = status;
+        if (status === 'successful' || status === 'optimized') {
+            statusClass = 'status-optimized';
+            statusLabel = 'Optimized';
+        } else if (status === 'failed') {
+            statusClass = 'status-warning';
+            statusLabel = 'Failed';
+        } else if (status === 'cancelled') {
+            statusClass = 'status-normal';
+            statusLabel = 'Cancelled';
+        } else if (Math.abs(baselineChange) < 10) {
+            statusClass = 'status-optimized';
+            statusLabel = 'Stable';
+        } else if (baselineChange > 20) {
+            statusClass = 'status-warning';
+            statusLabel = 'Critical';
+        }
+        
+        const executionId = pipeline.execution_id || pipeline.pipeline_execution_id || '--';
+        const shortExecutionId = executionId.length > 8 ? executionId.substring(0, 8) + '...' : executionId;
+        
+        return `
+            <tr>
+                <td class="text-mono text-sm">${formatDateTime(timestamp)}</td>
+                <td>${pipelineName}</td>
+                <td class="text-mono text-sm" title="${executionId}">${shortExecutionId}</td>
+                <td class="text-mono">${region}</td>
+                <td class="text-mono">${intensity.toFixed(0)} <span class="text-muted">gCO₂/kWh</span></td>
+                <td class="text-mono">${duration}</td>
+                <td class="text-mono">${(energy / 1000).toFixed(0)} <span class="text-muted">J</span></td>
+                <td class="text-mono">${carbon.toFixed(1)} <span class="text-muted">mg</span></td>
+                <td>${baselineDisplay}</td>
+                <td><span class="commit-status ${statusClass}">${statusLabel}</span></td>
+            </tr>
+        `;
+    }).join('');
+    
+    // Render pagination controls
+    renderPaginationControls();
+    
+    console.log(`📊 Rendered paginated pipeline history: page ${state.pagination.currentPage}/${state.pagination.totalPages} (${currentPageData.length}/${sortedPipelines.length} entries)`);
+}
+
+// ============================================
+// Pagination Functions
+// ============================================
+
+function renderPaginationControls() {
+    const paginationContainer = document.getElementById('pagination-container');
+    const paginationInfo = document.getElementById('pagination-info-text');
+    const paginationPages = document.getElementById('pagination-pages');
+    const prevBtn = document.getElementById('prev-page-btn');
+    const nextBtn = document.getElementById('next-page-btn');
+    
+    if (!paginationContainer || !paginationInfo || !paginationPages || !prevBtn || !nextBtn) return;
+    
+    const { currentPage, totalPages, totalItems, itemsPerPage } = state.pagination;
+    
+    // Show pagination container
+    paginationContainer.style.display = totalItems > 0 ? 'flex' : 'none';
+    
+    if (totalItems === 0) return;
+    
+    // Update info text
+    const startItem = (currentPage - 1) * itemsPerPage + 1;
+    const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+    paginationInfo.textContent = `Showing ${startItem}-${endItem} of ${totalItems} pipelines`;
+    
+    // Update prev/next buttons
+    prevBtn.disabled = currentPage <= 1;
+    nextBtn.disabled = currentPage >= totalPages;
+    
+    // Generate page numbers
+    paginationPages.innerHTML = generatePageNumbers(currentPage, totalPages);
+}
+
+function generatePageNumbers(currentPage, totalPages) {
+    if (totalPages <= 1) return '';
+    
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+        // Show all pages if total is small
+        for (let i = 1; i <= totalPages; i++) {
+            pages.push(createPageButton(i, i === currentPage));
+        }
+    } else {
+        // Show smart pagination with ellipsis
+        pages.push(createPageButton(1, currentPage === 1));
+        
+        if (currentPage > 3) {
+            pages.push('<span class="pagination-ellipsis">...</span>');
+        }
+        
+        const start = Math.max(2, currentPage - 1);
+        const end = Math.min(totalPages - 1, currentPage + 1);
+        
+        for (let i = start; i <= end; i++) {
+            if (i !== 1 && i !== totalPages) {
+                pages.push(createPageButton(i, i === currentPage));
+            }
+        }
+        
+        if (currentPage < totalPages - 2) {
+            pages.push('<span class="pagination-ellipsis">...</span>');
+        }
+        
+        if (totalPages > 1) {
+            pages.push(createPageButton(totalPages, currentPage === totalPages));
+        }
+    }
+    
+    return pages.join('');
+}
+
+function createPageButton(pageNumber, isActive) {
+    return `<button class="pagination-page ${isActive ? 'active' : ''}" onclick="goToPage(${pageNumber})">${pageNumber}</button>`;
+}
+
+function changePage(direction) {
+    const newPage = state.pagination.currentPage + direction;
+    if (newPage >= 1 && newPage <= state.pagination.totalPages) {
+        goToPage(newPage);
+    }
+}
+
+function goToPage(pageNumber) {
+    if (pageNumber >= 1 && pageNumber <= state.pagination.totalPages) {
+        state.pagination.currentPage = pageNumber;
+        renderPipelineTable(state.pagination.filteredData);
+    }
+}
+
+// Export pagination functions
+window.changePage = changePage;
+window.goToPage = goToPage;
 
 // ============================================
 // Chart Rendering
@@ -1276,6 +2253,268 @@ function renderForecastChart() {
     document.getElementById('forecast-best-time').textContent = bestTime;
 }
 
+async function renderOptimalTimeChart(selectedRegion = 'eu-west-2') {
+    const chartContainer = document.getElementById('optimal-time-chart');
+    if (!chartContainer) return;
+    
+    let forecastData = null;
+    let dataSource = '';
+    
+    // Get forecast data based on region
+    if (selectedRegion === 'eu-west-2') {
+        // Use UK Grid ESO data for London
+        if (state.forecast && state.forecast.length > 0) {
+            forecastData = state.forecast;
+            dataSource = 'UK National Grid ESO';
+        }
+    } else {
+        // Try ElectricityMaps forecast for other European regions
+        console.log(`🔍 Fetching ElectricityMaps forecast for ${selectedRegion}...`);
+        chartContainer.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                <div style="font-size: 14px; margin-bottom: 8px;">📊 Loading forecast data...</div>
+                <div style="font-size: 12px;">Fetching 24-hour predictions from ElectricityMaps</div>
+            </div>
+        `;
+        
+        try {
+            forecastData = await ElectricityMapsAPI.getForecast24h(selectedRegion);
+            if (forecastData && forecastData.length > 0) {
+                dataSource = 'ElectricityMaps';
+                console.log(`✅ Got ${forecastData.length} forecast points for ${selectedRegion}`);
+            }
+        } catch (error) {
+            console.error(`❌ Failed to get forecast for ${selectedRegion}:`, error);
+        }
+    }
+    
+    // If no forecast data available, show current status
+    if (!forecastData || forecastData.length === 0) {
+        const currentRegion = Object.values(state.regions).find(r => r.name === selectedRegion);
+        
+        if (currentRegion) {
+            chartContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                    <div style="font-size: 14px; margin-bottom: 8px;">📊 Current intensity: ${currentRegion.intensity.toFixed(1)} gCO₂/kWh</div>
+                    <div style="font-size: 12px;">Forecast data not available for ${selectedRegion}</div>
+                </div>
+            `;
+        } else {
+            chartContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                    <div style="font-size: 14px; margin-bottom: 8px;">📊 Loading region data...</div>
+                </div>
+            `;
+        }
+        
+        updateOptimalTimeUI('current-only', selectedRegion);
+        return;
+    }
+    
+    // Process forecast data based on source and filter out past times
+    let sampledSlots = [];
+    const now = new Date();
+    
+    if (selectedRegion === 'eu-west-2' && dataSource === 'UK National Grid ESO') {
+        // UK data: 48 half-hour slots, filter future only, then sample every 4th (2 hours apart)
+        const futureSlots = forecastData.filter(slot => new Date(slot.from) >= now);
+        for (let i = 0; i < Math.min(48, futureSlots.length); i += 4) {
+            sampledSlots.push(futureSlots[i]);
+        }
+    } else {
+        // ElectricityMaps data: hourly data, filter future only, then sample every 2nd (2 hours apart)
+        const futureSlots = forecastData.filter(slot => new Date(slot.from) >= now);
+        for (let i = 0; i < Math.min(24, futureSlots.length); i += 2) {
+            sampledSlots.push(futureSlots[i]);
+        }
+    }
+    
+    // Limit to 8 data points for compact display
+    sampledSlots = sampledSlots.slice(0, 8);
+    
+    // Get current intensity and AWS renewable percentage for the selected region
+    const currentRegion = Object.values(state.regions).find(r => r.name === selectedRegion);
+    const regionConfig = AWS_REGIONS[selectedRegion];
+    const currentIntensity = currentRegion ? currentRegion.intensity : (sampledSlots[0]?.intensity || 250);
+    const AWS_RENEWABLE_PCT = regionConfig?.aws_renewable_pct || 0.75; // Default 75% renewable
+    const PUE = 1.135;
+    
+    const datacenterSlots = sampledSlots.map(slot => ({
+        ...slot,
+        datacenterIntensity: Math.round(slot.intensity * (1 - AWS_RENEWABLE_PCT) * PUE * 10) / 10,
+        time: new Date(slot.from).toLocaleTimeString('en-GB', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false 
+        })
+    }));
+    
+    // Add "Now" as first entry
+    const nowSlot = {
+        datacenterIntensity: Math.round(currentIntensity * (1 - AWS_RENEWABLE_PCT) * PUE * 10) / 10,
+        time: 'Now',
+        from: new Date().toISOString()
+    };
+    
+    const allSlots = [nowSlot, ...datacenterSlots];
+    const intensities = allSlots.map(slot => slot.datacenterIntensity);
+    const times = allSlots.map(slot => slot.time);
+    
+    // Clear existing content
+    chartContainer.innerHTML = '';
+    
+    // Create bars
+    intensities.forEach((intensity, index) => {
+        const bar = document.createElement('div');
+        bar.className = 'forecast-bar';
+        
+        // Determine bar color based on AWS datacenter intensity thresholds
+        if (intensity <= 25) {
+            bar.classList.add('optimal');
+        } else if (intensity <= 75) {
+            bar.classList.add('moderate');
+        } else {
+            bar.classList.add('high');
+        }
+        
+        // Set height based on intensity (normalize to 0-100%) - smaller for compact display
+        const maxIntensity = Math.max(...intensities);
+        const height = Math.max(12, (intensity / maxIntensity) * 40); // Min 12px, max 40px
+        bar.style.height = `${height}px`;
+        
+        // Add time label
+        const timeLabel = document.createElement('div');
+        timeLabel.className = 'forecast-time';
+        timeLabel.textContent = times[index];
+        bar.appendChild(timeLabel);
+        
+        chartContainer.appendChild(bar);
+    });
+    
+    // Find optimal time and calculate savings
+    const optimalIndex = intensities.indexOf(Math.min(...intensities));
+    const optimalIntensity = Math.min(...intensities);
+    const savings = Math.round(((intensities[0] - optimalIntensity) / intensities[0]) * 100);
+    
+    // Update UI with real data
+    updateOptimalTimeUI('real-data', {
+        optimalIndex,
+        savings,
+        times,
+        intensities,
+        allSlots,
+        selectedRegion,
+        dataSource
+    });
+}
+
+function updateOptimalTimeUI(mode, regionOrData = {}) {
+    const optimalTimeText = document.getElementById('optimal-time-text');
+    const optimalTimeWindow = document.getElementById('optimal-time-window');
+    const optimalExplanation = document.getElementById('optimal-explanation');
+    const optimalExplanationTitle = document.getElementById('optimal-explanation-title');
+    const scheduleBtn = document.getElementById('btn-schedule');
+    const scheduleTime = document.getElementById('schedule-time');
+    
+    if (mode === 'no-data') {
+        // No forecast data available
+        if (optimalTimeText) optimalTimeText.textContent = 'Run Now';
+        if (optimalTimeWindow) optimalTimeWindow.textContent = 'Forecast data not available';
+        if (optimalExplanationTitle) optimalExplanationTitle.textContent = 'Analysis';
+        if (optimalExplanation) {
+            optimalExplanation.textContent = 'Forecast optimization uses real-time data from UK National Grid ESO and ElectricityMaps.';
+        }
+        if (scheduleBtn) scheduleBtn.style.display = 'none';
+        return;
+    }
+    
+    if (mode === 'current-only') {
+        const selectedRegion = regionOrData;
+        const currentRegion = Object.values(state.regions).find(r => r.name === selectedRegion);
+        const intensity = currentRegion ? currentRegion.intensity.toFixed(1) : '--';
+        
+        if (optimalTimeText) optimalTimeText.textContent = 'Run Now';
+        if (optimalTimeWindow) {
+            optimalTimeWindow.textContent = `Current intensity: ${intensity} gCO₂/kWh in ${selectedRegion}`;
+        }
+        if (optimalExplanationTitle) optimalExplanationTitle.textContent = `${selectedRegion} Analysis`;
+        if (optimalExplanation) {
+            const intensityLevel = currentRegion ? getIntensityAnalysis(currentRegion.intensity, selectedRegion) : 'Forecast data temporarily unavailable - try again in a moment.';
+            optimalExplanation.textContent = intensityLevel;
+        }
+        if (scheduleBtn) scheduleBtn.style.display = 'none';
+        return;
+    }
+    
+    if (mode === 'real-data') {
+        const { optimalIndex, savings, times, intensities, allSlots, selectedRegion, dataSource } = regionOrData;
+        
+        if (optimalIndex === 0 || savings < 10) {
+            // Current time is optimal or savings are minimal
+            if (optimalTimeText) optimalTimeText.textContent = 'Run Now';
+            if (optimalTimeWindow) optimalTimeWindow.textContent = 'Current carbon intensity is optimal';
+            if (optimalExplanationTitle) optimalExplanationTitle.textContent = `${selectedRegion} Analysis`;
+            if (optimalExplanation) {
+                optimalExplanation.textContent = `Grid intensity in ${selectedRegion} is currently at optimal levels. No significant benefit from waiting.`;
+            }
+            if (scheduleBtn) scheduleBtn.style.display = 'none';
+        } else {
+            // There's a better time to wait for
+            const optimalSlot = allSlots[optimalIndex];
+            const hoursFromNow = Math.round((new Date(optimalSlot.from) - new Date()) / (1000 * 60 * 60));
+            const optimalTime = times[optimalIndex];
+            const endTime = times[optimalIndex + 1] || times[optimalIndex];
+            
+            if (optimalTimeText) {
+                optimalTimeText.textContent = hoursFromNow > 0 ? `In ${hoursFromNow} hours` : 'Soon';
+            }
+            
+            if (optimalTimeWindow) {
+                optimalTimeWindow.textContent = `Forecasted low intensity window (${optimalTime} - ${endTime})`;
+            }
+            
+            if (optimalExplanationTitle) optimalExplanationTitle.textContent = `${selectedRegion} Forecast`;
+            if (optimalExplanation) {
+                const reason = getRegionSpecificExplanation(selectedRegion, intensities[0], savings, hoursFromNow);
+                optimalExplanation.textContent = reason;
+            }
+            
+            if (scheduleBtn && scheduleTime) {
+                scheduleBtn.style.display = 'flex';
+                scheduleTime.textContent = optimalTime;
+            }
+        }
+    }
+}
+
+function getIntensityAnalysis(intensity, regionName) {
+    if (intensity <= 25) {
+        return `${regionName} has excellent carbon intensity due to high renewable energy usage. Perfect time to deploy.`;
+    } else if (intensity <= 75) {
+        return `${regionName} shows good carbon intensity with moderate renewable energy mix. Suitable for deployment.`;
+    } else if (intensity <= 150) {
+        return `${regionName} has moderate carbon intensity. Consider waiting for cleaner periods if possible.`;
+    } else {
+        return `${regionName} currently has high carbon intensity due to fossil fuel dependency. Waiting recommended.`;
+    }
+}
+
+function getRegionSpecificExplanation(regionCode, currentIntensity, savings, hoursToWait) {
+    // Region-specific explanations based on energy mix using AWS region codes
+    const explanations = {
+        'eu-north-1': `${regionCode}'s grid relies heavily on hydroelectric power. Waiting ${hoursToWait}h will align with peak hydro generation periods.`,
+        'eu-west-3': `${regionCode} benefits from nuclear baseload power. The ${savings}% improvement comes from reduced peak demand periods.`,
+        'eu-west-2': `${regionCode}'s grid varies with wind generation and gas peaking plants. Waiting ${hoursToWait}h avoids high-carbon peak periods.`,
+        'eu-central-1': `${regionCode}'s grid includes significant renewable sources. The forecast shows ${savings}% improvement during off-peak hours.`,
+        'eu-west-1': `${regionCode}'s grid benefits from wind power. Waiting ${hoursToWait}h aligns with forecasted wind generation increases.`,
+        'eu-south-1': `${regionCode}'s grid includes solar and hydro sources. The ${savings}% improvement reflects optimal renewable generation timing.`,
+        'eu-south-2': `${regionCode}'s grid has significant solar capacity. Waiting aligns with peak solar generation periods.`,
+        'eu-central-2': `${regionCode} benefits from clean hydroelectric power. The forecast shows optimal low-carbon periods ahead.`
+    };
+    
+    return explanations[regionCode] || `${regionCode}'s grid intensity will improve by ${savings}% in ${hoursToWait} hours due to increased renewable generation.`;
+}
+
 async function renderMixChart(regionId = 'eu-west-2') {
     const canvas = document.getElementById('mix-canvas');
     if (!canvas) return;
@@ -1294,8 +2533,7 @@ async function renderMixChart(regionId = 'eu-west-2') {
     if (regionId !== 'eu-west-2') {
         mixData = await ElectricityMapsAPI.getPowerBreakdown(regionId);
         if (mixData && regionLabel) {
-            const regionName = AWS_REGIONS[regionId]?.location || regionId;
-            regionLabel.textContent = regionName;
+            regionLabel.textContent = regionId;
         }
     }
     
@@ -1379,26 +2617,115 @@ function calculateCarbonUI() {
     const vcpu = parseInt(document.getElementById('calc-vcpu').value) || 2;
     const memory = parseFloat(document.getElementById('calc-memory').value) || 4;
     
-    // Get intensity for selected region
-    let intensity = 300; // fallback
+    // Get actual intensity for selected region from real-time data
+    let intensity = 300; // fallback only if no data available
+    let regionName = region; // Use AWS region code as display name
+    
     if (state.regions[region]) {
+        // Use actual real-time intensity data
         intensity = state.regions[region].intensity;
+        regionName = region; // Keep AWS region code format
     } else if (region === 'us-east-1') {
-        intensity = 380; // US East average
+        intensity = 380; // US East average (fallback for non-EU region)
+        regionName = region;
     }
     
     const result = calculateCarbon(duration, vcpu, memory, intensity);
     
-    // Update UI
+    // Update basic results
     document.getElementById('result-energy').textContent = `${result.energyKwh.toFixed(4)} kWh`;
-    document.getElementById('result-operational').textContent = `${result.operationalG.toFixed(1)} gCO2`;
-    document.getElementById('result-embodied').textContent = `${result.embodiedG.toFixed(1)} gCO2`;
-    document.getElementById('result-total').textContent = `${result.totalG.toFixed(1)} gCO2`;
+    document.getElementById('result-operational').textContent = `${result.operationalG.toFixed(1)}g`;
+    document.getElementById('result-embodied').textContent = `${result.embodiedG.toFixed(1)}g`;
+    document.getElementById('result-total').textContent = `${result.totalG.toFixed(1)}g`;
     
-    // Animate results
-    document.getElementById('calc-results').classList.add('calculated');
+    // Add real-world comparison
+    updateCarbonComparison(result.totalG);
     
-    showToast(`Carbon calculated: ${result.totalG.toFixed(1)}g CO2 for ${region}`, 'success');
+    // Add personalized suggestions
+    updateSuggestions(region, intensity, result, duration, vcpu, memory);
+    
+    // Show results with animation
+    const resultsEl = document.getElementById('calc-results');
+    resultsEl.classList.add('calculated');
+    
+    // Scroll to results
+    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+    showToast(`Carbon footprint: ${result.totalG.toFixed(1)}g CO₂ in ${regionName}`, 'success');
+}
+
+function updateCarbonComparison(carbonGrams) {
+    const comparisonEl = document.getElementById('result-comparison');
+    if (!comparisonEl) return;
+    
+    // Real-world equivalents with corrected values
+    const equivalents = getCarbonEquivalents(carbonGrams);
+    
+    let comparisonText = '';
+    if (carbonGrams < 1) {
+        comparisonText = `That's like charging your phone ${equivalents.phoneCharges} times`;
+    } else if (carbonGrams < 10) {
+        comparisonText = `Equivalent to ${equivalents.carKm} km by car or ${equivalents.coffeeCups} cups of coffee`;
+    } else if (carbonGrams < 100) {
+        comparisonText = `Same as driving ${equivalents.carKm} km or streaming HD video for ${equivalents.streamingHours} hours`;
+    } else if (carbonGrams < 1000) {
+        comparisonText = `Equivalent to ${equivalents.carKm} km of driving or ${equivalents.treesYear} trees growing for a year`;
+    } else {
+        comparisonText = `Equivalent to ${equivalents.carKm} km of driving or ${(carbonGrams/1000).toFixed(1)} kg of CO₂`;
+    }
+    
+    comparisonEl.innerHTML = `
+        <strong>Real-world comparison:</strong><br>
+        ${comparisonText}
+    `;
+}
+
+function updateSuggestions(region, intensity, result, duration, vcpu, memory) {
+    const suggestionsEl = document.getElementById('suggestions-list');
+    if (!suggestionsEl) return;
+    
+    const suggestions = [];
+    
+    // Find cleaner regions
+    const allRegions = Object.values(state.regions);
+    if (allRegions.length > 0) {
+        const cleanestRegion = allRegions.reduce((min, r) => r.intensity < min.intensity ? r : min);
+        const potentialSavings = Math.round(((intensity - cleanestRegion.intensity) / intensity) * 100);
+        
+        if (potentialSavings > 10) {
+            suggestions.push(`Switch to ${cleanestRegion.location} to reduce emissions by ${potentialSavings}%`);
+        }
+    }
+    
+    // Duration optimization
+    if (duration > 120) {
+        suggestions.push('Consider breaking long-running tasks into smaller chunks');
+    }
+    
+    // Resource optimization
+    if (vcpu > 4) {
+        suggestions.push('Optimize your code to use fewer CPU cores if possible');
+    }
+    
+    if (memory > 16) {
+        suggestions.push('Review memory usage - reducing RAM can lower energy consumption');
+    }
+    
+    // Timing suggestions
+    if (intensity > 150) {
+        suggestions.push('Run workloads during off-peak hours when the grid is cleaner');
+    }
+    
+    // General suggestions
+    suggestions.push('Use auto-scaling to avoid running idle resources');
+    suggestions.push('Consider serverless functions for short-running tasks');
+    
+    // Limit to top 4 suggestions
+    const topSuggestions = suggestions.slice(0, 4);
+    
+    suggestionsEl.innerHTML = topSuggestions.map(suggestion => 
+        `<li>${suggestion}</li>`
+    ).join('');
 }
 
 
@@ -1408,22 +2735,22 @@ function calculateCarbonUI() {
 // ============================================
 
 function exportCSV() {
-    // Get current history data (from state or sample)
-    const tests = state.testHistory || SAMPLE_TESTS;
-    const headers = ['Time', 'Test Suite', 'Region', 'Intensity (gCO2/kWh)', 'Duration (min)', 'Carbon (gCO2)', 'Default SCI', 'Optimal SCI', 'Savings (gCO2)', 'Savings (%)', 'Status'];
+    // Get current pipeline history data (from state only - no fallback)
+    const pipelines = state.pipelineHistory || [];
+    const headers = ['Time', 'Pipeline', 'Region', 'Intensity (gCO2/kWh)', 'Duration (min)', 'Carbon (gCO2)', 'Default SCI', 'Optimal SCI', 'Savings (gCO2)', 'Savings (%)', 'Status'];
     
-    const rows = tests.map(test => [
-        test.timestamp || formatDateTime(test.time),
-        test.test_suite || test.suite,
-        test.optimal_region || test.region,
-        test.optimal_intensity || test.intensity,
-        test.duration_minutes || test.duration,
-        (test.optimal_sci || test.carbon || 0).toFixed(2),
-        (test.default_sci || 0).toFixed(2),
-        (test.optimal_sci || 0).toFixed(2),
-        (test.savings_g || 0).toFixed(2),
-        (test.savings_percent || test.savings || 0).toFixed(1),
-        test.pipeline_status || test.status || 'unknown'
+    const rows = pipelines.map(pipeline => [
+        pipeline.timestamp || formatDateTime(pipeline.time),
+        pipeline.pipeline_name || pipeline.test_suite || pipeline.suite,
+        pipeline.optimal_region || pipeline.region,
+        pipeline.optimal_intensity || pipeline.intensity,
+        pipeline.duration_minutes || pipeline.duration,
+        (pipeline.optimal_sci || pipeline.carbon || 0).toFixed(2),
+        (pipeline.default_sci || 0).toFixed(2),
+        (pipeline.optimal_sci || 0).toFixed(2),
+        (pipeline.savings_g || 0).toFixed(2),
+        (pipeline.savings_percent || pipeline.savings || 0).toFixed(1),
+        pipeline.pipeline_status || pipeline.status || 'unknown'
     ]);
     
     const csvContent = [
@@ -1434,10 +2761,10 @@ function exportCSV() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `green-qa-history-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `green-qa-pipeline-history-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     
-    showToast('History exported to CSV', 'success');
+    showToast('Pipeline history exported to CSV', 'success');
 }
 
 // ============================================
@@ -1453,86 +2780,7 @@ function exportCSV() {
  * - SCI calculation for default region (eu-west-2) for comparison
  * - Carbon savings (default_sci - optimal_sci)
  */
-function renderHistoryTable(tests) {
-    const tbody = document.getElementById('history-table');
-    if (!tbody) return;
-    
-    // Store in state for export
-    state.testHistory = tests;
-    
-    if (!tests || tests.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="8" style="text-align: center; padding: 40px; color: var(--grey-500);">
-                    No test history available. Run optimized tests to see results here.
-                </td>
-            </tr>
-        `;
-        return;
-    }
-    
-    tbody.innerHTML = tests.map(test => {
-        // Handle both API format and sample format
-        const timestamp = test.timestamp || (test.time ? formatDateTime(test.time) : '--');
-        const suite = test.test_suite || test.suite || 'Unknown';
-        const region = test.optimal_region || test.region || 'eu-west-2';
-        const intensity = test.optimal_intensity || test.intensity || 0;
-        const duration = test.duration_minutes ? `${test.duration_minutes}m` : (test.duration || '--');
-        const carbon = test.optimal_sci || test.carbon || 0;
-        const savingsPercent = test.savings_percent || test.savings || 0;
-        const savingsG = test.savings_g || 0;
-        const status = test.pipeline_status || test.status || 'unknown';
-        
-        // Determine status badge style
-        let statusClass = '';
-        let statusLabel = status;
-        if (status === 'success' || status === 'optimized') {
-            statusClass = 'status-optimized';
-            statusLabel = 'Optimized';
-        } else if (status === 'scheduled' || status === 'deferred') {
-            statusClass = 'status-deferred';
-            statusLabel = 'Deferred';
-        } else if (status === 'skipped' || status === 'not_triggered') {
-            statusClass = 'status-normal';
-            statusLabel = 'Manual';
-        } else if (status === 'failed') {
-            statusClass = 'status-warning';
-            statusLabel = 'Failed';
-        } else {
-            statusClass = 'status-normal';
-            statusLabel = status;
-        }
-        
-        // Format timestamp for display
-        let displayTime = timestamp;
-        if (timestamp && timestamp.includes('T')) {
-            const date = new Date(timestamp);
-            displayTime = date.toLocaleString('en-GB', {
-                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-            });
-        }
-        
-        // Savings display with color
-        const savingsDisplay = savingsPercent > 0 
-            ? `<span class="savings-positive">-${savingsPercent.toFixed(1)}%</span>` 
-            : `<span class="savings-neutral">0%</span>`;
-        
-        return `
-            <tr>
-                <td class="text-mono text-sm">${displayTime}</td>
-                <td>${suite}</td>
-                <td class="text-mono">${region}</td>
-                <td class="text-mono">${intensity.toFixed(0)} <span class="text-muted">gCO₂/kWh</span></td>
-                <td class="text-mono">${duration}</td>
-                <td class="text-mono">${carbon.toFixed(2)} <span class="text-muted">gCO₂</span></td>
-                <td>${savingsDisplay}</td>
-                <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-            </tr>
-        `;
-    }).join('');
-    
-    console.log(`📊 Rendered ${tests.length} test history entries`);
-}
+// Removed duplicate renderHistoryTable function - using enhanced version above
 
 // ============================================
 // Generation Mix Rendering
@@ -1545,8 +2793,9 @@ async function renderGenerationMix() {
     
     if (!section || !canvas || !list) return;
     
-    // Show section and check for data
-    section.style.display = 'block';
+    // Keep section hidden - UK Energy Mix disabled
+    // section.style.display = 'block';
+    return; // Exit early to prevent rendering
     
     // If no data available, show loading/placeholder
     if (!state.generationMix || state.generationMix.length === 0) {
@@ -1732,8 +2981,8 @@ async function refreshData() {
             }
         }
         
-        // Load real test history from API
-        const tests = await loadTestHistory(50);
+        // Load real pipeline history from API
+        const tests = await loadPipelineHistory(50);
         
         // Calculate real carbon savings
         const savings = calculateCarbonSavings(tests);
@@ -1745,7 +2994,10 @@ async function refreshData() {
         // Update all UI components
         updateSummaryCards();
         renderRegionGrid();
-        renderHistoryTable(tests); // Pass real tests
+        renderPipelineHistoryTable(tests); // Pass real pipeline data
+        
+        // Update impact summary with real data
+        await updateImpactSummary();
         
         // Render generation mix if available
         if (state.generationMix) {
@@ -1755,6 +3007,8 @@ async function refreshData() {
         // Update optimal time if UK forecast data is available
         if (state.forecast.length > 0) {
             updateOptimalTime();
+            const selectedRegion = document.getElementById('optimal-time-region-select')?.value || 'eu-west-2';
+            renderOptimalTimeChart(selectedRegion); // Update the new optimal time chart with real data
         }
         
         showToast('Data refreshed successfully', 'success');
@@ -1910,7 +3164,7 @@ function updateActiveNavLink(sectionId) {
 }
 
 function updateActiveNavOnScroll() {
-    const sections = ['dashboard', 'regions', 'global-regions', 'forecast', 'calculator', 'history'];
+    const sections = ['stats-insights-section', 'regions', 'global-regions', 'calculator', 'history'];
     const headerHeight = document.querySelector('.header').offsetHeight;
     const scrollPosition = window.scrollY + headerHeight + 100;
     
@@ -1966,6 +3220,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Show generation mix section (will show loading state initially)
     await renderGenerationMix();
+    
+    // Initialize optimal time chart (will be populated when forecast data loads)
+    renderOptimalTimeChart('eu-west-2');
+    
+    // Removed run-now-btn and schedule-btn event listeners
     
     // Initial data load
     await refreshData();
@@ -2157,190 +3416,51 @@ document.addEventListener('keydown', (e) => {
 // ============================================
 
 function updateOptimalTime() {
-    const regionSelect = document.getElementById('optimal-time-region');
+    // Legacy function - now handled by renderOptimalTimeChart()
+    // Just call the new chart rendering function
+    const selectedRegion = document.getElementById('optimal-time-region-select')?.value || 'eu-west-2';
+    renderOptimalTimeChart(selectedRegion);
+}
+
+function updateOptimalTimeForRegion() {
+    const regionSelect = document.getElementById('optimal-time-region-select');
+    if (!regionSelect) return;
+    
     const selectedRegion = regionSelect.value;
-    
-    const timeValue = document.getElementById('optimal-time-value');
-    const timeIntensity = document.getElementById('optimal-time-intensity');
-    
-    if (!selectedRegion) {
-        timeValue.textContent = '--';
-        timeIntensity.textContent = 'Select UK region';
+    renderOptimalTimeChart(selectedRegion);
+}
+
+// New functions for enhanced optimal time functionality
+function scheduleOptimalTime() {
+    const scheduleTime = document.getElementById('schedule-time')?.textContent || '--:--';
+    if (scheduleTime === '--:--') {
+        showToast('Please wait for forecast data to load', 'warning');
         return;
     }
+    showToast(`Tests scheduled for ${scheduleTime} when carbon intensity is lowest`, 'success');
     
-    // Only UK has forecast data
-    if (selectedRegion === 'eu-west-2' && state.forecast && state.forecast.length > 0) {
-        // Get AWS renewable percentage for London
-        const regionConfig = AWS_REGIONS[selectedRegion];
-        const renewablePct = regionConfig?.aws_renewable_pct || 0.80;
-        const PUE = 1.135;
-        
-        // Convert grid forecast to AWS datacenter intensity
-        const next24h = state.forecast.slice(0, 48).map(slot => ({
-            ...slot,
-            // Calculate AWS datacenter intensity from grid intensity
-            datacenterIntensity: Math.round(slot.intensity * (1 - renewablePct) * PUE * 10) / 10
-        }));
-        
-        // Find optimal time based on AWS datacenter intensity (not grid)
-        const minDatacenterIntensity = Math.min(...next24h.map(f => f.datacenterIntensity));
-        const optimalSlot = next24h.find(f => f.datacenterIntensity === minDatacenterIntensity);
-        
-        if (optimalSlot) {
-            const optimalTime = new Date(optimalSlot.from);
-            const now = new Date();
-            
-            // Get current intensity from London region
-            const currentRegion = state.regions['eu-west-2'];
-            const currentIntensity = currentRegion ? currentRegion.datacenter_intensity : null;
-            
-            // Check if optimal time is in the past
-            if (optimalTime < now) {
-                // Find next optimal time (within 10% of minimum)
-                const threshold = minDatacenterIntensity * 1.1;
-                const futureSlots = next24h.filter(f => new Date(f.from) > now && f.datacenterIntensity <= threshold);
-                
-                // Check if current time is better than or equal to next optimal
-                if (currentIntensity && futureSlots.length > 0) {
-                    const nextOptimal = futureSlots[0];
-                    const nextTime = new Date(nextOptimal.from);
-                    
-                    // Calculate potential carbon savings
-                    const savingsPercent = ((currentIntensity - nextOptimal.datacenterIntensity) / currentIntensity) * 100;
-                    const hoursUntil = (nextTime - now) / (1000 * 60 * 60);
-                    const minutesUntil = Math.round((nextTime - now) / (1000 * 60));
-                    
-                    // Decision logic: Recommend waiting only if savings are significant
-                    // - If savings >= 15%, always recommend waiting
-                    // - If savings >= 10% AND wait < 3 hours, recommend waiting
-                    // - Otherwise, recommend running now
-                    const shouldWait = savingsPercent >= 15 || (savingsPercent >= 10 && hoursUntil < 3);
-                    
-                    if (!shouldWait || currentIntensity <= nextOptimal.datacenterIntensity) {
-                        // Current time is optimal or savings too small to justify waiting
-                        timeValue.textContent = 'Now';
-                        if (savingsPercent > 0 && savingsPercent < 10) {
-                            timeIntensity.textContent = `${currentIntensity.toFixed(1)} gCO₂/kWh (only ${savingsPercent.toFixed(0)}% savings available)`;
-                        } else {
-                            timeIntensity.textContent = `${currentIntensity.toFixed(1)} gCO₂/kWh (optimal)`;
-                        }
-                    } else {
-                        // Waiting will provide significant carbon savings
-                        const timeStr = nextTime.toLocaleTimeString('en-GB', { 
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                            hour12: false 
-                        });
-                        const dateStr = nextTime.toLocaleDateString('en-GB', { 
-                            month: 'short', 
-                            day: 'numeric' 
-                        });
-                        
-                        let timeUntilText = '';
-                        if (hoursUntil < 1) {
-                            timeUntilText = ` (in ${minutesUntil}min)`;
-                        } else if (hoursUntil < 24) {
-                            timeUntilText = ` (in ${Math.round(hoursUntil)}h)`;
-                        }
-                        
-                        timeValue.textContent = timeStr;
-                        timeIntensity.textContent = `${dateStr} · ${nextOptimal.datacenterIntensity.toFixed(1)} gCO₂/kWh${timeUntilText} — ${savingsPercent.toFixed(0)}% savings`;
-                    }
-                } else if (futureSlots.length > 0) {
-                    // No current intensity, show next optimal
-                    const nextOptimal = futureSlots[0];
-                    const nextTime = new Date(nextOptimal.from);
-                    const timeStr = nextTime.toLocaleTimeString('en-GB', { 
-                        hour: '2-digit', 
-                        minute: '2-digit',
-                        hour12: false 
-                    });
-                    const dateStr = nextTime.toLocaleDateString('en-GB', { 
-                        month: 'short', 
-                        day: 'numeric' 
-                    });
-                    
-                    // Calculate time until optimal
-                    const hoursUntil = Math.round((nextTime - now) / (1000 * 60 * 60));
-                    const minutesUntil = Math.round((nextTime - now) / (1000 * 60));
-                    
-                    let timeUntilText = '';
-                    if (hoursUntil < 1) {
-                        timeUntilText = ` (in ${minutesUntil}min)`;
-                    } else if (hoursUntil < 24) {
-                        timeUntilText = ` (in ${hoursUntil}h)`;
-                    }
-                    
-                    timeValue.textContent = timeStr;
-                    timeIntensity.textContent = `${dateStr} · ${nextOptimal.datacenterIntensity} gCO₂/kWh${timeUntilText}`;
-                } else {
-                    timeValue.textContent = 'Now';
-                    timeIntensity.textContent = 'No better time in next 24h';
-                }
-            } else {
-                // Optimal time is in the future - check if savings are worth waiting
-                if (currentIntensity) {
-                    const savingsPercent = ((currentIntensity - minDatacenterIntensity) / currentIntensity) * 100;
-                    const hoursUntil = (optimalTime - now) / (1000 * 60 * 60);
-                    const minutesUntil = Math.round((optimalTime - now) / (1000 * 60));
-                    
-                    // Decision logic: Recommend waiting only if savings are significant
-                    const shouldWait = savingsPercent >= 15 || (savingsPercent >= 10 && hoursUntil < 3);
-                    
-                    if (!shouldWait || currentIntensity <= minDatacenterIntensity) {
-                        // Current time is optimal or savings too small
-                        timeValue.textContent = 'Now';
-                        if (savingsPercent > 0 && savingsPercent < 10) {
-                            timeIntensity.textContent = `${currentIntensity.toFixed(1)} gCO₂/kWh (only ${savingsPercent.toFixed(0)}% savings available)`;
-                        } else {
-                            timeIntensity.textContent = `${currentIntensity.toFixed(1)} gCO₂/kWh (optimal)`;
-                        }
-                    } else {
-                        // Waiting will provide significant carbon savings
-                        const timeStr = optimalTime.toLocaleTimeString('en-GB', { 
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                            hour12: false 
-                        });
-                        const dateStr = optimalTime.toLocaleDateString('en-GB', { 
-                            month: 'short', 
-                            day: 'numeric' 
-                        });
-                        
-                        let timeUntilText = '';
-                        if (hoursUntil < 1) {
-                            timeUntilText = ` (in ${minutesUntil}min)`;
-                        } else if (hoursUntil < 24) {
-                            timeUntilText = ` (in ${Math.round(hoursUntil)}h)`;
-                        }
-                        
-                        timeValue.textContent = timeStr;
-                        timeIntensity.textContent = `${dateStr} · ${minDatacenterIntensity.toFixed(1)} gCO₂/kWh${timeUntilText} — ${savingsPercent.toFixed(0)}% savings`;
-                    }
-                } else {
-                    // No current intensity, just show optimal time
-                    const timeStr = optimalTime.toLocaleTimeString('en-GB', { 
-                        hour: '2-digit', 
-                        minute: '2-digit',
-                        hour12: false 
-                    });
-                    const dateStr = optimalTime.toLocaleDateString('en-GB', { 
-                        month: 'short', 
-                        day: 'numeric' 
-                    });
-                    
-                    timeValue.textContent = timeStr;
-                    timeIntensity.textContent = `${dateStr} · ${minDatacenterIntensity.toFixed(1)} gCO₂/kWh`;
-                }
-            }
-        } else {
-            timeValue.textContent = '--';
-            timeIntensity.textContent = 'No forecast data';
-        }
+    // Here you would integrate with your CI/CD system to actually schedule the tests
+    console.log(`Scheduling tests for optimal time: ${scheduleTime}`);
+}
+
+// Removed runTestsNow function - no longer needed
+
+function switchHistoryView(view) {
+    const tableView = document.getElementById('table-view');
+    const cardsView = document.getElementById('cards-view');
+    const tableBtn = document.getElementById('table-view-btn');
+    const cardsBtn = document.getElementById('cards-view-btn');
+    
+    if (view === 'table') {
+        tableView.style.display = 'block';
+        cardsView.style.display = 'none';
+        tableBtn.classList.add('active');
+        cardsBtn.classList.remove('active');
     } else {
-        timeValue.textContent = '--';
-        timeIntensity.textContent = 'Only UK has forecast data';
+        tableView.style.display = 'none';
+        cardsView.style.display = 'block';
+        tableBtn.classList.remove('active');
+        cardsBtn.classList.add('active');
     }
 }
 
@@ -2348,8 +3468,14 @@ function updateOptimalTime() {
 window.refreshData = refreshData;
 window.calculateCarbonUI = calculateCarbonUI;
 window.exportCSV = exportCSV;
+window.switchHistoryView = switchHistoryView;
 window.closeRegionModal = closeRegionModal;
 window.updateOptimalTime = updateOptimalTime;
+window.updatePotentialSavings = updatePotentialSavings;
+window.updateRegionComparison = updateRegionComparison;
+window.updateOptimalTimeForRegion = updateOptimalTimeForRegion;
+window.scheduleOptimalTime = scheduleOptimalTime;
+window.runTestsNow = runTestsNow;
 
 
 // ============================================
@@ -2363,7 +3489,7 @@ function initWorldMap() {
     if (!container) return;
     
     const width = container.clientWidth;
-    const height = 600;
+    const height = container.clientHeight || 450;
     
     svg = d3.select('#world-map')
         .attr('width', width)
@@ -2509,12 +3635,7 @@ function getColor(intensity) {
     return '#f97316';
 }
 
-function getStatusBadge(intensity) {
-    if (intensity <= 25) return 'Excellent';
-    if (intensity <= 75) return 'Good';
-    if (intensity <= 150) return 'Moderate';
-    return 'High';
-}
+// Removed duplicate getStatusBadge function - using the one at line 449 instead
 
 function renderRegionMarkers() {
     console.log('📍 renderRegionMarkers called');
@@ -2627,7 +3748,7 @@ function renderRegionMarkers() {
                         ${d.datacenter_intensity.toFixed(1)} <span style="font-size: 11px;">gCO₂/kWh</span>
                     </div>
                     <div style="margin-top: 6px; font-size: 11px;">
-                        <span style="background: ${getColor(d.datacenter_intensity)}20; color: ${getColor(d.datacenter_intensity)}; padding: 2px 8px; border-radius: 8px; font-weight: 600;">${status}</span>
+                        <span style="background: ${getColor(d.datacenter_intensity)}20; color: ${getColor(d.datacenter_intensity)}; padding: 2px 8px; border-radius: 8px; font-weight: 600;">${status.text}</span>
                     </div>
                     <div style="margin-top: 6px; font-size: 11px; color: #ccc;">⚡ ${renewablePct}% renewable</div>
                 `);
@@ -2756,11 +3877,18 @@ window.addEventListener('resize', () => {
 
 function refreshMapData() {
     console.log('🔄 Refreshing map with latest data...');
-    if (g && svg) {
-        // Remove existing markers
-        g.selectAll('.markers').remove();
-        // Re-render with updated data
-        renderRegionMarkers();
+    // Check if map is initialized before trying to refresh
+    if (typeof g !== 'undefined' && g && typeof svg !== 'undefined' && svg) {
+        try {
+            // Remove existing markers
+            g.selectAll('.markers').remove();
+            // Re-render with updated data
+            renderRegionMarkers();
+        } catch (error) {
+            console.warn('Map not ready for refresh:', error);
+        }
+    } else {
+        console.log('Map not initialized yet, skipping refresh');
     }
 }
 
@@ -3205,3 +4333,243 @@ function addRegionLabelsToCountries(regionsData) {
     // The region names will be shown via the pin markers and HUD
     console.log('📍 Region labels: Using pin markers for region identification');
 }
+
+// ============================================
+// Collapsible Sections
+// ============================================
+
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    const content = document.getElementById(sectionId + '-content');
+    const collapseBtn = document.getElementById(sectionId + '-collapse-btn');
+    const collapseIcon = collapseBtn?.querySelector('.collapse-icon');
+    
+    if (!section || !content) {
+        console.error('Section or content not found:', sectionId);
+        return;
+    }
+    
+    const isCollapsed = section.classList.contains('collapsed');
+    
+    if (isCollapsed) {
+        // Expand
+        section.classList.remove('collapsed');
+        content.classList.remove('collapsed');
+        if (collapseIcon) collapseIcon.textContent = '−';
+        
+        // If this is the AWS regions section and worldwide tab is active, reinitialize map
+        if (sectionId === 'aws-regions') {
+            const worldwideTab = document.getElementById('worldwide-tab-content');
+            const mapContainer = document.getElementById('world-map-container');
+            if (worldwideTab && worldwideTab.classList.contains('active') && 
+                mapContainer && mapContainer.style.display !== 'none') {
+                // Small delay to ensure DOM is ready
+                setTimeout(() => {
+                    if (!svg || svg.selectAll('*').empty()) {
+                        initWorldMap();
+                    }
+                }, 100);
+            }
+        }
+    } else {
+        // Collapse
+        section.classList.add('collapsed');
+        content.classList.add('collapsed');
+        if (collapseIcon) collapseIcon.textContent = '+';
+    }
+}
+
+function switchRegionTab(tabName) {
+    // Update tab buttons
+    const europeBtnEl = document.getElementById('europe-tab-btn');
+    const worldwideBtnEl = document.getElementById('worldwide-tab-btn');
+    
+    // Update tab content
+    const europeContentEl = document.getElementById('europe-tab-content');
+    const worldwideContentEl = document.getElementById('worldwide-tab-content');
+    
+    if (tabName === 'europe') {
+        // Activate Europe tab
+        europeBtnEl.classList.add('active');
+        worldwideBtnEl.classList.remove('active');
+        europeContentEl.classList.add('active');
+        worldwideContentEl.classList.remove('active');
+    } else if (tabName === 'worldwide') {
+        // Activate Worldwide tab
+        europeBtnEl.classList.remove('active');
+        worldwideBtnEl.classList.add('active');
+        europeContentEl.classList.remove('active');
+        worldwideContentEl.classList.add('active');
+        
+        // Initialize map if switching to worldwide tab and map view is active
+        const mapContainer = document.getElementById('world-map-container');
+        if (mapContainer && mapContainer.style.display !== 'none') {
+            // Small delay to ensure DOM is ready
+            setTimeout(() => {
+                if (!svg || svg.selectAll('*').empty()) {
+                    initWorldMap();
+                }
+            }, 100);
+        }
+    }
+}
+
+function filterHistory() {
+    const pipelineFilter = document.getElementById('pipeline-filter')?.value || 'all';
+    const statusFilter = document.getElementById('status-filter')?.value || 'all';
+    const regionFilter = document.getElementById('region-filter')?.value || 'all';
+    
+    // Use pipelineHistory or testHistory (whichever is available)
+    const historyData = state.pipelineHistory || state.testHistory || [];
+    if (!historyData || historyData.length === 0) return;
+    
+    let filteredTests = [...historyData];
+    
+    // Apply pipeline filter first (for metrics and chart)
+    let pipelineFilteredTests = [...historyData];
+    if (pipelineFilter !== 'all') {
+        pipelineFilteredTests = pipelineFilteredTests.filter(test => 
+            (test.pipeline_name || test.suite || 'Unknown') === pipelineFilter
+        );
+    }
+    
+    // Update metrics and trend chart with pipeline-filtered data
+    renderHistoryMetrics(pipelineFilteredTests);
+    renderTrendChart(historyData, pipelineFilter);
+    
+    // Apply all filters for the table
+    if (statusFilter !== 'all') {
+        filteredTests = filteredTests.filter(test => {
+            const status = test.pipeline_status || test.status || 'unknown';
+            if (statusFilter === 'optimized') return status === 'successful' || status === 'optimized';
+            if (statusFilter === 'stable') return Math.abs(((test.carbon_g || test.carbon || 0) - 500) / 500) < 0.1;
+            if (statusFilter === 'critical') return ((test.carbon_g || test.carbon || 0) - 500) / 500 > 0.2;
+            return status === statusFilter;
+        });
+    }
+    
+    if (pipelineFilter !== 'all') {
+        filteredTests = filteredTests.filter(test => 
+            (test.pipeline_name || test.suite || 'Unknown') === pipelineFilter
+        );
+    }
+    
+    if (regionFilter !== 'all') {
+        filteredTests = filteredTests.filter(test => 
+            (test.optimal_region || test.region || 'eu-west-2') === regionFilter
+        );
+    }
+    
+    // Reset to first page when filtering
+    state.pagination.currentPage = 1;
+    
+    // Re-render table with filtered data using pagination
+    renderPipelineTable(filteredTests);
+}
+
+// Expose functions globally for onclick handlers
+window.toggleSection = toggleSection;
+window.switchRegionTab = switchRegionTab;
+window.filterHistory = filterHistory;
+
+// ============================================
+// Trend Chart Pipeline Filter
+// ============================================
+
+function updateTrendChart() {
+    const pipelineFilter = document.getElementById('trend-pipeline-filter')?.value || 'all';
+    const historyData = state.pipelineHistory || state.testHistory || [];
+    
+    if (historyData.length > 0) {
+        renderTrendChartAnimated(historyData, pipelineFilter);
+    }
+}
+
+function populateTrendPipelineFilter(pipelines) {
+    const trendFilter = document.getElementById('trend-pipeline-filter');
+    if (!trendFilter || !pipelines) return;
+    
+    // Get unique pipeline names
+    const uniquePipelines = [...new Set(pipelines.map(p => 
+        p.pipeline_name || p.test_suite || p.suite || 'Unknown'
+    ))].sort();
+    
+    // Clear existing options except "All Pipelines"
+    trendFilter.innerHTML = '<option value="all">All Pipelines</option>';
+    
+    // Add unique pipeline names
+    uniquePipelines.forEach(pipelineName => {
+        const option = document.createElement('option');
+        option.value = pipelineName;
+        option.textContent = pipelineName;
+        trendFilter.appendChild(option);
+    });
+    
+    console.log(`📈 Populated trend chart filter with ${uniquePipelines.length} unique pipelines`);
+}
+
+// Enhanced smooth curve interpolation for trend chart
+function drawStraightLines(ctx, points) {
+    if (points.length < 2) return;
+    
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    
+    // Use straight lines for all connections
+    for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+    }
+}
+
+// Export functions
+window.updateTrendChart = updateTrendChart;
+window.populateTrendPipelineFilter = populateTrendPipelineFilter;
+
+// ============================================
+// Sync Pipeline Filters
+// ============================================
+
+function syncPipelineFilters(sourceFilterId, targetFilterId) {
+    const sourceFilter = document.getElementById(sourceFilterId);
+    const targetFilter = document.getElementById(targetFilterId);
+    
+    if (sourceFilter && targetFilter) {
+        targetFilter.value = sourceFilter.value;
+    }
+}
+
+// Enhanced filterHistory function to sync with trend chart
+function filterHistoryAndSync() {
+    // Get the current pipeline filter value
+    const pipelineFilter = document.getElementById('pipeline-filter')?.value || 'all';
+    
+    // Sync with trend chart filter
+    syncPipelineFilters('pipeline-filter', 'trend-pipeline-filter');
+    
+    // Update trend chart with new filter
+    updateTrendChart();
+    
+    // Call original filter function
+    filterHistory();
+}
+
+// Enhanced updateTrendChart to sync with table filter
+function updateTrendChartAndSync() {
+    // Get the current trend filter value
+    const trendFilter = document.getElementById('trend-pipeline-filter')?.value || 'all';
+    
+    // Sync with table filter
+    syncPipelineFilters('trend-pipeline-filter', 'pipeline-filter');
+    
+    // Update trend chart
+    updateTrendChart();
+    
+    // Update table if needed
+    if (document.getElementById('pipeline-filter')?.value !== trendFilter) {
+        filterHistory();
+    }
+}
+
+// Export enhanced functions
+window.filterHistoryAndSync = filterHistoryAndSync;
+window.updateTrendChartAndSync = updateTrendChartAndSync;

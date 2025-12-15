@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagination Test - ZeroCarb</title>
+    <link rel="stylesheet" href="public/styles.css">
+    <link rel="stylesheet" href="public/educational.css">
+</head>
+<body>
+    <div style="padding: 20px; max-width: 1200px; margin: 0 auto;">
+        <h1>Pipeline History Pagination Test</h1>
+        
+        <!-- Pipeline History Section -->
+        <div class="pipeline-history">
+            <div class="history-header">
+                <h3>Pipeline History (Paginated)</h3>
+                <div class="history-controls">
+                    <div class="history-filters">
+                        <select id="pipeline-filter" onchange="filterHistoryAndSync()">
+                            <option value="all">All Pipelines</option>
+                        </select>
+                        <select id="status-filter" onchange="filterHistory()">
+                            <option value="all">All Status</option>
+                            <option value="optimized">Optimized</option>
+                            <option value="successful">Successful</option>
+                            <option value="failed">Failed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <select id="region-filter" onchange="filterHistory()">
+                            <option value="all">All Regions</option>
+                            <option value="eu-west-2">eu-west-2</option>
+                            <option value="eu-north-1">eu-north-1</option>
+                            <option value="eu-west-3">eu-west-3</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Table View -->
+            <div class="table-container" id="table-view">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Pipeline</th>
+                            <th>Execution ID</th>
+                            <th>Region</th>
+                            <th>Intensity</th>
+                            <th>Duration</th>
+                            <th>Energy</th>
+                            <th>Carbon</th>
+                            <th>vs Baseline</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table">
+                        <tr>
+                            <td colspan="10" style="text-align: center; padding: 40px;">
+                                Loading pipeline data...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <!-- Pagination Controls -->
+                <div class="pagination-container" id="pagination-container">
+                    <div class="pagination-info">
+                        <span id="pagination-info-text">Showing 1-10 of 0 pipelines</span>
+                    </div>
+                    <div class="pagination-controls">
+                        <button class="pagination-btn" id="prev-page-btn" onclick="changePage(-1)" disabled>
+                            ← Previous
+                        </button>
+                        <div class="pagination-pages" id="pagination-pages">
+                            <!-- Page numbers will be generated dynamically -->
+                        </div>
+                        <button class="pagination-btn" id="next-page-btn" onclick="changePage(1)" disabled>
+                            Next →
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 40px; padding: 20px; background: #f8fafc; border-radius: 8px;">
+            <h3>Test Instructions:</h3>
+            <ol>
+                <li><strong>Sorting:</strong> Verify pipelines are sorted by descending time (most recent first)</li>
+                <li><strong>Pagination:</strong> Should show 10 records per page with 3 total pages (25 records)</li>
+                <li><strong>Navigation:</strong> Test Previous/Next buttons and page number clicks</li>
+                <li><strong>Filtering:</strong> Test pipeline filter - should reset to page 1 when filtering</li>
+                <li><strong>Execution IDs:</strong> Should show shortened IDs with full ID in tooltip</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Load test data -->
+    <script src="public/test-history-data.js"></script>
+    
+    <!-- Load main app (only the parts we need) -->
+    <script>
+        // Minimal state for testing
+        const state = {
+            pipelineHistory: [],
+            testHistory: [],
+            pagination: {
+                currentPage: 1,
+                itemsPerPage: 10,
+                totalItems: 0,
+                totalPages: 0,
+                filteredData: []
+            }
+        };
+        
+        // Load test data when available
+        if (typeof TEST_HISTORY_DATA !== 'undefined') {
+            state.pipelineHistory = TEST_HISTORY_DATA;
+            console.log('✅ Loaded', TEST_HISTORY_DATA.length, 'test pipeline records');
+        }
+        
+        // Helper functions
+        function formatDateTime(date) {
+            return new Date(date).toLocaleString('en-GB', {
+                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+            });
+        }
+    </script>
+    
+    <!-- Load only the pagination functions from app.js -->
+    <script src="public/app.js"></script>
+    
+    <script>
+        // Initialize the test
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🧪 Starting pagination test...');
+            
+            if (state.pipelineHistory.length > 0) {
+                // Populate pipeline filter
+                populatePipelineFilter(state.pipelineHistory);
+                
+                // Render the table with pagination
+                renderPipelineTable(state.pipelineHistory);
+                
+                console.log('✅ Pagination test initialized');
+                console.log(`📊 Data: ${state.pipelineHistory.length} total records`);
+                console.log(`📄 Pages: ${state.pagination.totalPages} pages of ${state.pagination.itemsPerPage} records each`);
+            } else {
+                console.error('❌ No test data available');
+            }
+        });
+    </script>
+</body>
+</html>
