@@ -755,12 +755,51 @@ def execute_pipeline_action(
             )
     
     elif recommendation == "relocate":
-        # Relocation is informational - don't auto-trigger
-        return TriggerResult(
-            status=TriggerStatus.SKIPPED,
-            service="None",
-            message="RELOCATE recommendation - manual action required to change region"
-        )
+        # Trigger pipeline in the optimal (alternative) region for carbon savings
+        if not SCHEDULING_CONFIG["auto_trigger_on_run_now"]:
+            return TriggerResult(
+                status=TriggerStatus.SKIPPED,
+                service="None",
+                message="Auto-trigger is disabled (AUTO_TRIGGER_RUN_NOW=false)"
+            )
+        
+        # Use the optimal region passed from scheduler for triggering
+        # This enables actual carbon savings through geographic load shifting
+        if CODEPIPELINE_CONFIG["enabled"]:
+            result = trigger_codepipeline(workload_type=workload_type, region=region)
+        elif CODEBUILD_CONFIG["enabled"]:
+            result = trigger_codebuild(workload_type=workload_type, region=region)
+        elif STEPFUNCTIONS_CONFIG["enabled"]:
+            result = trigger_stepfunctions(
+                workload_type=workload_type,
+                region=region,
+                input_data={
+                    "region": region,
+                    "carbon_intensity": carbon_intensity,
+                    "triggered_by": "green-qa-relocate",
+                    "estimated_savings_percent": estimated_savings
+                }
+            )
+        else:
+            return TriggerResult(
+                status=TriggerStatus.NOT_CONFIGURED,
+                service="None",
+                message="No pipeline service enabled"
+            )
+        
+        # Send notification about relocation
+        if result.status == TriggerStatus.SUCCESS:
+            send_notification(
+                subject=f"[Green QA] Pipeline Relocated to {region}",
+                message=f"Pipeline triggered in optimal region for carbon savings.\n"
+                        f"Region: {region}\n"
+                        f"Carbon Intensity: {carbon_intensity} gCO2/kWh\n"
+                        f"Estimated Savings: {estimated_savings:.1f}%\n"
+                        f"Execution ID: {result.execution_id}",
+                event_type="pipeline_triggered"
+            )
+        
+        return result
     
     else:
         return TriggerResult(

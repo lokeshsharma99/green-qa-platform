@@ -190,9 +190,9 @@ def main():
     print(f"   Reason: {reason}")
     print(f"   Optimal region: {target_region}")
     
-    # NOTE: Pipeline must be triggered in the region where it exists
-    # The pipeline is in eu-west-2, so we trigger there but calculate carbon for optimal region
-    pipeline_region = os.environ.get('AWS_DEFAULT_REGION', 'eu-west-2')
+    # Use optimal region for pipeline execution to minimize carbon footprint
+    # The pipeline will be triggered in the region with lowest carbon intensity
+    pipeline_region = target_region
     print(f"   Pipeline region: {pipeline_region} (where pipeline exists)")
     
     # Step 5: Calculate SCI
