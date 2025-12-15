@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="dark-mode.css">
     <link rel="stylesheet" href="educational.css">
+    <link rel="stylesheet" href="bedrock-ai.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="dark-mode.js"></script>
     <link rel="icon" href="logo.png" type="image/png">
@@ -88,6 +89,76 @@
                             </div>
                             <div class="impact-action">
                                 <a href="#history" class="impact-report-link">View Full Impact Report →</a>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- AI Carbon Advisor Section -->
+                <section class="section ai-insights-section" id="ai-insights">
+                    <div class="ai-insights-card">
+                        <div class="ai-header">
+                            <div class="ai-title">
+                                <span class="ai-icon">🤖</span>
+                                <h3>AI Carbon Advisor</h3>
+                            </div>
+                            <div class="ai-badge">
+                                <svg class="ai-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                                </svg>
+                                Powered by Amazon Bedrock
+                            </div>
+                        </div>
+                        
+                        <!-- AI Loading State -->
+                        <div class="ai-loading" id="ai-loading">
+                            <div class="ai-loading-spinner"></div>
+                            <span>Generating insight...</span>
+                        </div>
+                        
+                        <!-- AI Insight Display -->
+                        <div class="ai-insight-container" id="ai-insight-content">
+                            <div class="ai-insight-text" id="ai-insight-text">
+                                <span class="ai-disabled-notice" id="ai-disabled-notice">
+                                    <p>🔒 AI features require a Bedrock API token.</p>
+                                    <p>Configure with: <code>BedrockAI.init('your-token')</code></p>
+                                </span>
+                            </div>
+                            <div class="ai-insight-meta">
+                                <span id="ai-insight-timestamp"></span>
+                                <button class="ai-refresh-btn" onclick="BedrockAI.generateInsight()" title="Get new insight">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                                    </svg>
+                                    New Insight
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Questions -->
+                        <div class="ai-quick-questions">
+                            <span class="ai-quick-questions-label">Quick questions:</span>
+                            <button class="ai-quick-btn" onclick="BedrockAI.askQuick('best-region')">🌍 Best region now?</button>
+                            <button class="ai-quick-btn" onclick="BedrockAI.askQuick('best-time')">⏰ Best time today?</button>
+                            <button class="ai-quick-btn" onclick="BedrockAI.askQuick('explain-savings')">📊 Explain my savings</button>
+                            <button class="ai-quick-btn" onclick="BedrockAI.askQuick('compare-regions')">🔄 Compare regions</button>
+                        </div>
+                        
+                        <!-- Chat Interface -->
+                        <div class="ai-chat-section">
+                            <div class="ai-chat-messages" id="ai-chat-messages">
+                                <!-- Chat messages will appear here -->
+                            </div>
+                            <div class="ai-chat-input-container">
+                                <input 
+                                    type="text" 
+                                    id="ai-question-input" 
+                                    placeholder="Ask about your carbon footprint..." 
+                                    onkeypress="if(event.key==='Enter')BedrockAI.handleSubmit(event)"
+                                >
+                                <button class="ai-send-btn" onclick="BedrockAI.handleSubmit()">
+                                    Ask AI
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -921,5 +992,9 @@
     
     <!-- Main Application -->
     <script src="app.js"></script>
+    
+    <!-- Bedrock AI Integration -->
+    <script src="bedrock-ai.js"></script>
+    <script src="bedrock-config.js"></script>
 </body>
 </html>
