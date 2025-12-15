@@ -119,6 +119,13 @@ const state = {
     }
 };
 
+// ============================================
+// Map Variables (Global) - Fixed initialization order
+// ============================================
+
+let svg = null, projection = null, path = null, g = null, zoom = null;
+let mapInitialized = false;
+
 // No sample test data - use only real data from API or generated test files
 
 // ============================================
@@ -2976,7 +2983,7 @@ async function refreshData() {
             renderGlobalRegionGrid(state.globalRegions);
             
             // Refresh map with real-time data
-            if (typeof refreshMapData === 'function') {
+            if (typeof refreshMapData === 'function' && mapInitialized) {
                 setTimeout(() => refreshMapData(), 500);
             }
         }
@@ -3482,8 +3489,6 @@ window.runTestsNow = runTestsNow;
 // D3.js World Map Visualization
 // ============================================
 
-let svg, projection, path, g, zoom;
-
 function initWorldMap() {
     const container = document.getElementById('world-map-container');
     if (!container) return;
@@ -3511,6 +3516,9 @@ function initWorldMap() {
     
     path = d3.geoPath().projection(projection);
     
+    // Create main group first
+    g = svg.append('g');
+    
     // Create zoom behavior
     zoom = d3.zoom()
         .scaleExtent([1, 8])
@@ -3531,9 +3539,6 @@ function initWorldMap() {
         });
     
     svg.call(zoom);
-    
-    // Create main group
-    g = svg.append('g');
     
     // Load world map data (using Natural Earth data from CDN)
     console.log('🌍 Loading world map data...');
@@ -3567,12 +3572,17 @@ function initWorldMap() {
                 });
             
             console.log('🗺️ World map rendered, now adding markers...');
+            // Set map as initialized before adding markers
+            mapInitialized = true;
+            console.log('✅ mapInitialized set to:', mapInitialized);
             // Add AWS region markers
             renderRegionMarkers();
         })
         .catch(error => {
             console.error('❌ Error loading map data:', error);
             console.log('⚠️ Fallback: showing markers without world map');
+            // Set map as initialized before adding markers (fallback mode)
+            mapInitialized = true;
             // Fallback: just show markers without world map
             renderRegionMarkers();
         });
@@ -3640,6 +3650,13 @@ function getColor(intensity) {
 function renderRegionMarkers() {
     console.log('📍 renderRegionMarkers called');
     console.log('g exists:', !!g);
+    console.log('mapInitialized:', mapInitialized);
+    
+    // Check if map is properly initialized - only check g since mapInitialized might not be set yet during initial render
+    if (!g) {
+        console.log('⚠️ g not available, skipping marker rendering');
+        return;
+    }
     
     // Use synced real-time data from state.globalRegions (worldwide) if available
     let regionsData;
@@ -3832,7 +3849,7 @@ function switchView(view) {
         gridBtn.classList.remove('active');
         
         // Reinitialize map if needed
-        if (!svg || svg.selectAll('*').empty()) {
+        if (!mapInitialized || !svg || svg.selectAll('*').empty()) {
             initWorldMap();
         }
     } else {
@@ -3878,7 +3895,7 @@ window.addEventListener('resize', () => {
 function refreshMapData() {
     console.log('🔄 Refreshing map with latest data...');
     // Check if map is initialized before trying to refresh
-    if (typeof g !== 'undefined' && g && typeof svg !== 'undefined' && svg) {
+    if (mapInitialized && g && svg && !g.empty() && !svg.empty()) {
         try {
             // Remove existing markers
             g.selectAll('.markers').remove();
@@ -4365,7 +4382,7 @@ function toggleSection(sectionId) {
                 mapContainer && mapContainer.style.display !== 'none') {
                 // Small delay to ensure DOM is ready
                 setTimeout(() => {
-                    if (!svg || svg.selectAll('*').empty()) {
+                    if (!mapInitialized || !svg || svg.selectAll('*').empty()) {
                         initWorldMap();
                     }
                 }, 100);
@@ -4406,7 +4423,7 @@ function switchRegionTab(tabName) {
         if (mapContainer && mapContainer.style.display !== 'none') {
             // Small delay to ensure DOM is ready
             setTimeout(() => {
-                if (!svg || svg.selectAll('*').empty()) {
+                if (!mapInitialized || !svg || !svg.node() || svg.selectAll('*').empty()) {
                     initWorldMap();
                 }
             }, 100);
