@@ -85,7 +85,7 @@
                 // Calculate immediate carbon
                 const cpu_energy = (vcpu_count * 10 * workload_duration_hours) / 1000;
                 const memory_energy = memory_gb * 0.000392 * workload_duration_hours;
-                const total_energy = (cpu_energy + memory_energy) * 1.135;
+                const total_energy = (cpu_energy + memory_energy) * 1.15;  // AWS PUE 2024
                 const immediate_carbon = total_energy * current_carbon_intensity;
                 
                 // Generate scheduling windows

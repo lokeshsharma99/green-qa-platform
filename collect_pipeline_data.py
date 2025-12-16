@@ -195,7 +195,7 @@ def get_carbon_intensity(region: str) -> float:
                 
                 # Apply AWS datacenter formula
                 aws_renewable_pct = 0.80  # 80% renewable for AWS eu-west-2
-                pue = 1.135
+                pue = 1.15  # AWS 2024 Sustainability Report
                 datacenter_intensity = grid_intensity * (1 - aws_renewable_pct) * pue
                 
                 return round(datacenter_intensity, 1)

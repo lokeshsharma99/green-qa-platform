@@ -230,7 +230,7 @@ class SlackAwareScheduler:
         Uses TEADS methodology:
         - CPU: vCPU * 10W * hours / 1000 = kWh
         - Memory: GB * 0.000392 * hours = kWh
-        - PUE: 1.135 (AWS average)
+        - PUE: 1.15 (AWS 2024 Sustainability Report)
         """
         # CPU energy
         cpu_power_w = vcpu_count * 10  # 10W per vCPU (average)
@@ -240,7 +240,7 @@ class SlackAwareScheduler:
         memory_energy_kwh = memory_gb * 0.000392 * duration_hours
         
         # Total energy with PUE
-        total_energy_kwh = (cpu_energy_kwh + memory_energy_kwh) * 1.135
+        total_energy_kwh = (cpu_energy_kwh + memory_energy_kwh) * 1.15
         
         # Carbon footprint
         carbon_footprint_gco2 = total_energy_kwh * carbon_intensity

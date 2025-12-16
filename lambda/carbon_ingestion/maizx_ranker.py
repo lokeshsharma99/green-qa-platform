@@ -137,8 +137,8 @@ class MAIZXRanker:
         # Energy consumption for duration (kWh)
         energy_kwh = (total_power_w / 1000) * workload.duration_hours
         
-        # Apply PUE (Power Usage Effectiveness) - AWS average is 1.135
-        pue = 1.135
+        # Apply PUE (Power Usage Effectiveness) - AWS 2024 Sustainability Report
+        pue = 1.15
         energy_with_pue_kwh = energy_kwh * pue
         
         # Calculate carbon footprint (gCO2)

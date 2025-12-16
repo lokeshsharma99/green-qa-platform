@@ -19,7 +19,7 @@ from datetime import datetime
 # CONSTANTS (from Cloud Carbon Footprint methodology)
 # ============================================================================
 
-CLOUD_PUE = {'aws': 1.135, 'gcp': 1.1, 'azure': 1.185}
+CLOUD_PUE = {'aws': 1.15, 'gcp': 1.1, 'azure': 1.185}  # AWS 2024 Sustainability Report
 VCPU_TDP_WATTS = 10.0  # Watts per vCPU (Intel Xeon default)
 MEMORY_COEFFICIENT_KWH_PER_GB = 0.000392  # kWh per GB-hour
 EMBODIED_EMISSIONS_G_PER_VCPU_HOUR = 2.5  # gCO2 per vCPU-hour

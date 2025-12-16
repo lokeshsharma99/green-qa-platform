@@ -39,9 +39,9 @@ TABLE_NAME = os.environ.get('DYNAMODB_TABLE', 'green_qa_carbon_intensity')
 
 # Cloud Carbon Footprint PUE Values
 # Source: https://www.cloudcarbonfootprint.org/docs/methodology/#power-usage-effectiveness-pue
-# AWS Sustainability Report: https://sustainability.aboutamazon.com/
+# AWS Sustainability Report: https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf
 CLOUD_PUE = {
-    'aws': 1.135,    # AWS average PUE (2021 data)
+    'aws': 1.15,     # AWS average PUE (2024 Sustainability Report)
     'gcp': 1.1,      # GCP average PUE
     'azure': 1.185   # Azure average PUE
 }
@@ -368,7 +368,7 @@ def calculate_test_carbon_footprint(duration_seconds: float, vcpu_count: int = 2
                                     provider: str = 'aws', instance_type: str = 'default') -> Dict:
     """Calculate carbon footprint for test execution using CCF methodology."""
     duration_hours = duration_seconds / 3600
-    pue = CLOUD_PUE.get(provider, 1.135)
+    pue = CLOUD_PUE.get(provider, 1.15)
     
     # Compute energy
     vcpu_tdp = VCPU_TDP_WATTS.get(instance_type, VCPU_TDP_WATTS['default'])

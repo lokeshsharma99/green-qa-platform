@@ -45,13 +45,33 @@ const EDUCATIONAL_CONTENT = {
         short: "Data center energy efficiency ratio",
         detailed: `PUE = Total Facility Energy / IT Equipment Energy
         
-        • PUE 1.0 = Perfect efficiency (impossible)
-        • PUE 1.1-1.2 = Excellent (AWS, Google)
-        • PUE 1.5-2.0 = Average data center
+        • PUE 1.0 = Perfect efficiency (theoretical minimum)
+        • PUE 1.15 = AWS (2024 Sustainability Report)
+        • PUE 1.25 = Public cloud industry average
+        • PUE 1.63 = On-premises enterprise data centers
         • PUE 2.0+ = Inefficient
         
-        AWS average PUE is 1.135, meaning 13.5% overhead for cooling, lighting, etc.`,
-        learnMore: "https://www.cloudcarbonfootprint.org/docs/methodology/#power-usage-effectiveness-pue"
+        AWS PUE of 1.15 means only 15% overhead for cooling, lighting, etc.
+        This is 8% better than industry average and 29% better than on-premises.`,
+        learnMore: "https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf"
+    },
+    
+    wue: {
+        title: "Water Use Effectiveness (WUE)",
+        short: "Data center water efficiency ratio",
+        detailed: `WUE = Total Water Used / IT Equipment Energy (L/kWh)
+        
+        • AWS WUE: 0.15 L/kWh (2024)
+        • 17% improvement from 2023
+        • 40% improvement since 2021
+        
+        AWS uses innovative cooling technologies including:
+        • Direct-to-chip liquid cooling for AI workloads
+        • Direct evaporative cooling systems
+        • Real-time water monitoring and leak detection
+        
+        AWS is committed to being water positive by 2030.`,
+        learnMore: "https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf"
     },
     
     embodiedCarbon: {
@@ -110,21 +130,42 @@ const EDUCATIONAL_CONTENT = {
         🟠 eu-central-1 (Frankfurt): ~300 gCO₂/kWh - Coal/gas mix
         
         Choosing the right region can reduce emissions by 90%+`,
-        learnMore: "https://sustainability.aboutamazon.com/products-services/the-cloud"
+        learnMore: "https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf"
     },
     
     renewableEnergy: {
         title: "AWS Renewable Energy",
-        short: "AWS purchases renewable energy to offset consumption",
-        detailed: `AWS is committed to 100% renewable energy by 2025:
+        short: "AWS matches 100% of electricity with renewable sources",
+        detailed: `AWS achieved 100% renewable energy matching in 2024:
         
+        • 100% of electricity matched with renewable sources (2024)
+        • World's largest corporate purchaser of renewable energy since 2020
+        • 302 utility-scale wind and solar projects globally
+        • 621 renewable energy projects (34 GW capacity)
+        
+        Methods include:
         • Power Purchase Agreements (PPAs) with wind/solar farms
-        • On-site solar installations at data centers
-        • Renewable Energy Certificates (RECs)
+        • Battery energy storage systems
+        • Nuclear energy (including Small Modular Reactors)
         
-        The "AWS Renewable %" shows how much of a region's 
-        electricity comes from AWS's renewable energy purchases.`,
-        learnMore: "https://sustainability.aboutamazon.com/environment/the-cloud"
+        The "AWS Renewable %" shows location-based renewable estimates.`,
+        learnMore: "https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf"
+    },
+    
+    graviton: {
+        title: "AWS Graviton Chips",
+        short: "Energy-efficient ARM-based processors",
+        detailed: `Graviton chips deliver better performance with less energy:
+        
+        • Up to 60% less energy for same performance
+        • 12,000 MTCO₂e reduction from customer adoption (2024)
+        • 71,000 MTCO₂e reduction from Amazon's own adoption
+        • Over 70,000 customers using Graviton chips
+        
+        Other efficient chips:
+        • Inferentia2: 50% better performance/watt
+        • Trainium3: 40% more energy efficient than Trainium2`,
+        learnMore: "https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf"
     },
     
     forecast: {
@@ -487,7 +528,7 @@ const QUICK_TIPS = [
     },
     {
         icon: '⚡',
-        tip: 'AWS PUE of 1.135 means 13.5% of energy goes to cooling and infrastructure.',
+        tip: 'AWS PUE of 1.15 (2024) means 15% of energy goes to cooling and infrastructure.',
         category: 'efficiency'
     },
     {

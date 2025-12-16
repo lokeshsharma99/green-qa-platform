@@ -496,7 +496,7 @@ def calculate_accurate_sci(pipeline_data: Dict, carbon_intensity: float) -> Dict
     """
     
     # Constants
-    PUE = 1.135  # AWS PUE
+    PUE = 1.15  # AWS PUE (2024 Sustainability Report)
     EMBODIED_G_PER_VCPU_HOUR = 2.5  # Embodied carbon per vCPU-hour
     
     total_energy_kwh = 0

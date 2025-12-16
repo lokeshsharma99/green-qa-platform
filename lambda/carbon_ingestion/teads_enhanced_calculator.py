@@ -56,8 +56,9 @@ VCPU_TDP_WATTS = {
 MEMORY_COEFFICIENT_KWH_PER_GB = 0.000392
 
 # PUE (Power Usage Effectiveness)
+# Source: https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf
 CLOUD_PUE = {
-    'aws': 1.135,
+    'aws': 1.15,  # AWS 2024 Sustainability Report
     'gcp': 1.10,
     'azure': 1.185
 }
@@ -246,7 +247,7 @@ class TeadsEnhancedCalculator:
         total_energy_kwh = (total_power_w * duration_hours) / 1000
         
         # Apply PUE
-        pue = CLOUD_PUE.get(instance.provider, 1.135)
+        pue = CLOUD_PUE.get(instance.provider, 1.15)
         total_energy_with_pue_kwh = total_energy_kwh * pue
         
         return {

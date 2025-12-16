@@ -39,8 +39,8 @@ AWS_RENEWABLE_ENERGY_PCT = {
 }
 
 # AWS PUE (Power Usage Effectiveness)
-# Source: AWS Sustainability Report
-AWS_PUE = 1.135  # AWS average PUE (2021 data)
+# Source: https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf
+AWS_PUE = 1.15  # AWS average PUE (2024 Sustainability Report)
 
 # Default renewable percentage if region not found
 DEFAULT_RENEWABLE_PCT = 0.70  # Conservative estimate

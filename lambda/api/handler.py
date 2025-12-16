@@ -159,8 +159,8 @@ def calculate_carbon_footprint(region: str, duration_seconds: int,
             carbon_intensity = intensity_data['carbon_intensity']
         
         # Constants from Cloud Carbon Footprint methodology
-        # Sources: https://www.cloudcarbonfootprint.org/docs/methodology/
-        PUE = 1.135  # AWS average PUE (Power Usage Effectiveness)
+        # Sources: https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf
+        PUE = 1.15  # AWS average PUE (2024 Sustainability Report)
         VCPU_TDP_WATTS = 10.0  # Intel Xeon Scalable (Watts per vCPU)
         MEMORY_COEFFICIENT_KWH_PER_GB = 0.000392  # Memory power (kWh per GB-hour)
         EMBODIED_EMISSIONS_G_PER_VCPU_HOUR = 2.5  # Manufacturing emissions (gCO2 per vCPU-hour)

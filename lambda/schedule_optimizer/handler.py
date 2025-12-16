@@ -64,8 +64,9 @@ DEFER_BENEFIT_THRESHOLD = float(os.environ.get('DEFER_BENEFIT_THRESHOLD', '0.15'
 MAX_DEFER_HOURS = int(os.environ.get('MAX_DEFER_HOURS', '24'))
 
 # Cloud Carbon Footprint PUE values
+# Source: https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf
 PUE_VALUES = {
-    'aws': 1.135,
+    'aws': 1.15,  # AWS 2024 Sustainability Report
     'gcp': 1.1,
     'azure': 1.185
 }
@@ -246,7 +247,7 @@ def calculate_energy_kwh(
 def calculate_carbon_g(
     energy_kwh: float,
     carbon_intensity: float,
-    pue: float = 1.135
+    pue: float = 1.15
 ) -> float:
     """
     Calculate carbon emissions in grams CO2.
@@ -260,7 +261,7 @@ def calculate_savings(
     current_intensity: float,
     optimal_intensity: float,
     energy_kwh: float,
-    pue: float = 1.135
+    pue: float = 1.15
 ) -> Tuple[float, float]:
     """
     Calculate carbon savings from deferral.
@@ -779,7 +780,7 @@ def lambda_handler(event: Dict, context) -> Dict:
             
             # Step 2: Calculate SCI for both regions
             duration_hours = duration_minutes / 60
-            pue = PUE_VALUES.get('aws', 1.135)
+            pue = PUE_VALUES.get('aws', 1.15)
             
             # Energy calculation
             compute_kwh = (vcpu_count * VCPU_TDP_WATTS * duration_hours) / 1000

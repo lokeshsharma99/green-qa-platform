@@ -21,7 +21,7 @@ except ImportError:
     # Fallback if running standalone
     AWS_RENEWABLE_ENERGY_PCT = {}
     def calculate_aws_datacenter_carbon_intensity(region, intensity):
-        return {'datacenter_intensity_gco2_kwh': intensity * 1.135}
+        return {'datacenter_intensity_gco2_kwh': intensity * 1.15}
 
 
 # Complete AWS Region Information
@@ -394,7 +394,7 @@ def calculate_region_carbon_intensity(region_code: str) -> Dict:
         'country': region.get('country', 'Unknown'),
         'grid_intensity': grid_intensity,
         'aws_renewable_pct': region.get('renewable_pct', 0.70),
-        'datacenter_intensity': result.get('datacenter_intensity_gco2_kwh', grid_intensity * 1.135),
+        'datacenter_intensity': result.get('datacenter_intensity_gco2_kwh', grid_intensity * 1.15),
         'timezone': region.get('timezone', 'UTC'),
         'lat': region.get('lat', 0),
         'lon': region.get('lon', 0)
@@ -486,7 +486,7 @@ def print_region_table(regions: List[Dict], title: str):
         grid = region['grid_intensity']
         dc = region['datacenter_intensity']
         renewable = region['aws_renewable_pct'] * 100
-        savings = ((grid * 1.135 - dc) / (grid * 1.135)) * 100
+        savings = ((grid * 1.15 - dc) / (grid * 1.15)) * 100
         
         print(f"{i:<6}{region['region_code']:<25}{region['location']:<25}"
               f"{grid:<12.0f}{dc:<12.1f}{renewable:<12.0f}%{savings:>6.1f}%")

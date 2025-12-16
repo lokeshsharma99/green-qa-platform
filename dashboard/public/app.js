@@ -45,8 +45,8 @@ const THRESHOLDS = {
 };
 
 // AWS Europe Data Centers
-// Renewable energy data from: AWS Sustainability Report 2023 & AWS Customer Carbon Footprint Tool
-// Source: https://sustainability.aboutamazon.com/products-services/the-cloud
+// Renewable energy data from: AWS Sustainability Report 2024 & AWS Customer Carbon Footprint Tool
+// Source: https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf
 const AWS_REGIONS = {
     'eu-north-1': { name: 'eu-north-1', location: 'Stockholm, Sweden', country: 'SE', flag: '🇸🇪', lat: 59.33, lon: 18.07, aws_renewable_pct: 0.98 },
     'eu-west-3': { name: 'eu-west-3', location: 'Paris, France', country: 'FR', flag: '🇫🇷', lat: 48.86, lon: 2.35, aws_renewable_pct: 0.75 },
@@ -67,19 +67,31 @@ const EMBER_DATA = {
 
 // Cloud Carbon Footprint constants
 // Sources and references for all values below
+// Primary Source: Amazon 2024 Sustainability Report
+// https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf
 const CCF = {
     // Power Usage Effectiveness (PUE)
-    // Source: https://www.cloudcarbonfootprint.org/docs/methodology/#power-usage-effectiveness-pue
+    // AWS 2024: "AWS reported a global PUE of 1.15—better than both the public cloud 
+    // industry average of 1.25 and 1.63 for on-premises enterprise data centers"
     PUE: { 
-        aws: 1.135,    // AWS Sustainability Report 2021
+        aws: 1.15,     // AWS 2024 Sustainability Report (industry avg: 1.25, on-prem: 1.63)
         gcp: 1.1,      // GCP average
         azure: 1.185   // Azure average
+    },
+    
+    // Water Use Effectiveness (WUE) - AWS 2024
+    // "AWS's global data center WUE of 0.15 L/kWh in 2024—a 17% improvement from 2023"
+    WUE: {
+        aws: 0.15,     // AWS 2024: 0.15 L/kWh (17% improvement from 2023, 40% since 2021)
+        industry_avg: 1.8  // Industry average for comparison
     },
     
     // vCPU Thermal Design Power (Watts)
     // Source: https://github.com/cloud-carbon-footprint/cloud-carbon-footprint/blob/trunk/packages/aws/src/lib/AWSInstanceTypes.ts
     // Based on Intel Xeon Scalable processors (most common in AWS)
+    // Note: Graviton chips use up to 60% less energy for same performance (AWS 2024)
     VCPU_TDP_WATTS: 10,
+    GRAVITON_ENERGY_SAVINGS: 0.60,  // "Graviton-based instances use up to 60% less energy"
     
     // Memory power coefficient (kWh per GB-hour)
     // Source: https://www.cloudcarbonfootprint.org/docs/methodology/#memory
@@ -90,7 +102,12 @@ const CCF = {
     // Sources:
     // - Teads: https://medium.com/teads-engineering/building-an-aws-ec2-carbon-emissions-dataset-3f0fd76c98ac
     // - Dell LCA: https://i.dell.com/sites/csdocuments/CorpComm_Docs/en/carbon-footprint-poweredge-r740.pdf
-    EMBODIED_G_PER_VCPU_HOUR: 2.5
+    EMBODIED_G_PER_VCPU_HOUR: 2.5,
+    
+    // AWS vs On-Premises Efficiency (AWS 2024)
+    // "Research estimates AWS infrastructure is up to 4.1 times more efficient than on-premises"
+    AWS_VS_ONPREM_EFFICIENCY: 4.1,
+    MAX_CARBON_REDUCTION: 0.99  // "carbon footprint can be reduced by up to 99%"
 };
 
 // ============================================
@@ -619,14 +636,14 @@ function getTooltipContent(type) {
         'datacenter': {
             title: 'Data Center Carbon Intensity',
             content: 'Actual AWS data center carbon footprint after accounting for renewable energy and efficiency.',
-            breakdown: 'Formula: Grid Intensity × (1 - Renewable %) × PUE\n\nPUE (Power Usage Effectiveness) = 1.135 for AWS',
-            example: 'Grid: 66 gCO₂/kWh\nRenewable: 80%\nResult: 66 × 0.20 × 1.135 = 15 gCO₂/kWh'
+            breakdown: 'Formula: Grid Intensity × (1 - Renewable %) × PUE\n\nPUE (Power Usage Effectiveness) = 1.15 for AWS (2024)',
+            example: 'Grid: 66 gCO₂/kWh\nRenewable: 80%\nResult: 66 × 0.20 × 1.15 = 15.2 gCO₂/kWh'
         },
         'pue': {
             title: 'PUE (Power Usage Effectiveness)',
             content: 'Ratio of total data center energy to IT equipment energy. Lower is better.',
             breakdown: 'PUE = Total Facility Energy / IT Equipment Energy',
-            example: 'AWS PUE: 1.135 (very efficient)\nTypical: 1.67\nPoor: 2.0+'
+            example: 'AWS PUE: 1.15 (2024 report)\nTypical: 1.67\nPoor: 2.0+'
         },
         'gco2-kwh': {
             title: 'gCO₂/kWh',
@@ -720,7 +737,7 @@ function showToast(message, type = 'info') {
 
 function calculateCarbon(durationMinutes, vcpuCount, memoryGb, intensity, provider = 'aws') {
     const durationHours = durationMinutes / 60;
-    const pue = CCF.PUE[provider] || 1.135;
+    const pue = CCF.PUE[provider] || 1.15;
     
     // Compute energy (kWh)
     const computeKwh = (vcpuCount * CCF.VCPU_TDP_WATTS * durationHours) / 1000;
@@ -869,7 +886,7 @@ async function loadAllRegionData() {
                 // Use UK Grid ESO real-time data for eu-west-2
                 const gridIntensity = ukForecast[0].intensity;
                 const renewablePct = regionConfig.aws_renewable_pct || 0.80;
-                const datacenterIntensity = Math.round(gridIntensity * (1 - renewablePct) * 1.135 * 10) / 10;
+                const datacenterIntensity = Math.round(gridIntensity * (1 - renewablePct) * 1.15 * 10) / 10;
                 
                 data = {
                     intensity: datacenterIntensity,
@@ -890,11 +907,18 @@ async function loadAllRegionData() {
         if (!data) {
             const emData = await ElectricityMapsAPI.getCarbonIntensity(regionId);
             if (emData) {
-                // ElectricityMaps with dataCenterProvider=aws returns datacenter intensity
+                // ElectricityMaps returns GRID intensity - we need to calculate DC intensity
+                // Formula: DC_Intensity = Grid_Intensity × (1 - AWS_Renewable%) × PUE
+                const gridIntensity = emData.intensity;
+                const renewablePct = regionConfig.aws_renewable_pct || 0.70;
+                const PUE = 1.15;  // AWS 2024 Sustainability Report
+                const datacenterIntensity = Math.round(gridIntensity * (1 - renewablePct) * PUE * 10) / 10;
+                
                 data = {
                     ...emData,
-                    datacenter_intensity: emData.intensity,
-                    grid_intensity: Math.round(emData.intensity / ((1 - (regionConfig.aws_renewable_pct || 0.70)) * 1.135))
+                    intensity: datacenterIntensity,  // Use DC intensity for display
+                    grid_intensity: gridIntensity,
+                    datacenter_intensity: datacenterIntensity
                 };
                 state.dataSources.add(emData.isRealtime ? 'ElectricityMaps' : 'ElectricityMaps (est)');
                 
@@ -966,14 +990,14 @@ async function loadAllRegionData() {
         // If datacenter intensity not provided, calculate it
         if (!datacenterIntensity) {
             const renewablePct = regionConfig.aws_renewable_pct || 0.70;
-            const PUE = 1.135;
+            const PUE = 1.15;  // AWS 2024 Sustainability Report
             datacenterIntensity = Math.round(gridIntensity * (1 - renewablePct) * PUE * 10) / 10;
         }
         
         // If grid intensity not provided, reverse-calculate it
         if (!data.grid_intensity && datacenterIntensity) {
             const renewablePct = regionConfig.aws_renewable_pct || 0.70;
-            const PUE = 1.135;
+            const PUE = 1.15;  // AWS 2024 Sustainability Report
             gridIntensity = Math.round(datacenterIntensity / ((1 - renewablePct) * PUE));
         }
         
@@ -2344,7 +2368,7 @@ async function renderOptimalTimeChart(selectedRegion = 'eu-west-2') {
     const regionConfig = AWS_REGIONS[selectedRegion];
     const currentIntensity = currentRegion ? currentRegion.intensity : (sampledSlots[0]?.intensity || 250);
     const AWS_RENEWABLE_PCT = regionConfig?.aws_renewable_pct || 0.75; // Default 75% renewable
-    const PUE = 1.135;
+    const PUE = 1.15;  // AWS 2024 Sustainability Report
     
     const datacenterSlots = sampledSlots.map(slot => ({
         ...slot,
@@ -3101,7 +3125,7 @@ function openGlobalRegionModal(region) {
                 <strong>Data Center Intensity:</strong> ${region.datacenter_intensity.toFixed(1)} gCO₂/kWh
             </p>
             <p style="margin-bottom: 0;">
-                AWS data centers use renewable energy and efficient infrastructure (PUE 1.135) 
+                AWS data centers use renewable energy and efficient infrastructure (PUE 1.15) 
                 to significantly reduce carbon emissions compared to the regional grid average.
             </p>
         </div>
@@ -3290,7 +3314,7 @@ function openRegionModal(region) {
         // Get AWS renewable percentage for London
         const regionConfig = AWS_REGIONS['eu-west-2'];
         const renewablePct = regionConfig?.aws_renewable_pct || 0.80;
-        const PUE = 1.135;
+        const PUE = 1.15;  // AWS 2024 Sustainability Report
         
         // Convert grid forecast to AWS datacenter intensity
         const next24h = state.forecast.slice(0, 48).map(slot => ({
@@ -3365,12 +3389,12 @@ function openRegionModal(region) {
             <p style="margin-bottom: 12px;">
                 <strong>Grid Intensity:</strong> ${gridIntensity.toFixed(1)} gCO₂/kWh<br>
                 <strong>AWS Renewable Energy:</strong> ${renewablePct}%<br>
-                <strong>AWS PUE (Power Usage Effectiveness):</strong> 1.135<br>
+                <strong>AWS PUE (Power Usage Effectiveness):</strong> 1.15<br>
                 <strong>Data Center Intensity:</strong> ${datacenterIntensity.toFixed(1)} gCO₂/kWh
             </p>
             <p style="margin-bottom: 12px; padding: 12px; background: var(--grey-100); border-left: 3px solid var(--accent);">
                 <strong>Calculation:</strong><br>
-                ${gridIntensity.toFixed(1)} × (1 - ${renewablePct/100}) × 1.135 = ${datacenterIntensity.toFixed(1)} gCO₂/kWh
+                ${gridIntensity.toFixed(1)} × (1 - ${renewablePct/100}) × 1.15 = ${datacenterIntensity.toFixed(1)} gCO₂/kWh
             </p>
             <p style="margin-bottom: 0;">
                 AWS data centers use renewable energy and efficient infrastructure to significantly 
@@ -3381,7 +3405,7 @@ function openRegionModal(region) {
             <p style="margin-top: 12px; font-size: 12px; color: var(--grey-600);">
                 <strong>Data Sources:</strong><br>
                 • Grid intensity: ${region.source}<br>
-                • AWS renewable %: <a href="https://sustainability.aboutamazon.com/products-services/the-cloud" target="_blank" style="color: var(--accent);">AWS Sustainability Report 2023</a><br>
+                • AWS renewable %: <a href="https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf" target="_blank" style="color: var(--accent);">AWS Sustainability Report 2024</a><br>
                 • PUE: <a href="https://www.cloudcarbonfootprint.org/docs/methodology/" target="_blank" style="color: var(--accent);">Cloud Carbon Footprint</a>
             </p>
         </div>

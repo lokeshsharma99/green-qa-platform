@@ -87,7 +87,7 @@
   "intensity": 16.1,
   "grid_intensity": 71,
   "renewable_pct": 0.8,
-  "pue": 1.135,
+  "pue": 1.15,
   "index": "low",
   "source": "uk-grid-eso",
   "is_realtime": true,

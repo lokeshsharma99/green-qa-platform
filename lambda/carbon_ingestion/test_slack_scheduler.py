@@ -168,7 +168,7 @@ def test_carbon_footprint_calculation():
     # Expected calculation:
     # CPU: 8 * 10W * 4h / 1000 = 0.32 kWh
     # Memory: 16 * 0.000392 * 4 = 0.025088 kWh
-    # Total: (0.32 + 0.025088) * 1.135 = 0.392 kWh
+    # Total: (0.32 + 0.025088) * 1.15 = 0.397 kWh
     # Carbon: 0.392 * 250 = 98 gCO2
     
     expected = 98  # Approximate

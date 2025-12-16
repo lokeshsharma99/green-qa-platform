@@ -34,7 +34,7 @@ DEFAULT_REGION = 'eu-west-2'
 
 # Cloud Carbon Footprint constants
 CCF = {
-    'PUE': 1.135,
+    'PUE': 1.15,  # AWS 2024 Sustainability Report
     'VCPU_TDP_WATTS': 10,
     'MEMORY_COEFF': 0.000392,
     'EMBODIED_G_PER_VCPU_HOUR': 2.5

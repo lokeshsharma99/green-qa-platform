@@ -47,15 +47,17 @@ Uses GSF SCI formula with Cloud Carbon Footprint constants:
 SCI = (E × I) + M
 
 E = Energy (kWh) = (vCPU × 10W × hours + Memory × 0.000392 × hours) × PUE
-I = Carbon Intensity (gCO2/kWh) = Grid × (1 - AWS_Renewable%) × 1.135
+I = Carbon Intensity (gCO2/kWh) = Grid × (1 - AWS_Renewable%) × 1.15
 M = Embodied Carbon = vCPU × hours × 2.5g
 ```
 
-**Constants**:
-- AWS PUE: 1.135
-- vCPU TDP: 10W
+**Constants** (Source: [AWS 2024 Sustainability Report](https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf)):
+- AWS PUE: 1.15 (industry avg: 1.25, on-premises: 1.63)
+- AWS WUE: 0.15 L/kWh (17% improvement from 2023)
+- vCPU TDP: 10W (Graviton: up to 60% less energy)
 - Memory coefficient: 0.000392 kWh/GB-hour
 - Embodied carbon: 2.5g CO2/vCPU-hour
+- AWS vs On-Premises: 4.1x more efficient, up to 99% carbon reduction
 
 ## AWS Infrastructure
 
@@ -96,6 +98,43 @@ POST /store_result
 
 # Get pipeline history
 GET /history?limit=50
+```
+
+## Carbon Scheduler v2.0 (MAIZX Algorithm)
+
+Research-backed scheduling engine with 85% emission reduction potential.
+
+**Algorithms implemented**:
+- **MAIZX Ranking** (KTH/NTNU) - Multi-factor weighted scoring
+- **α-Fair Allocation** (Inria) - Prevents statistical bias in region selection
+- **Dynamic Slack** (Green FL) - 20-60% extra savings by extending wait windows
+- **CarbonFlex Scaling** (UMass) - Elastic resource scaling based on carbon intensity
+- **HYBRID Strategy** - Combined time + space shifting
+
+**Strategies**:
+| Strategy | Description |
+|----------|-------------|
+| `RUN_NOW` | Execute immediately in current region |
+| `TIME_SHIFT` | Wait for better time in same region |
+| `SPACE_SHIFT` | Run now in cleaner region |
+| `HYBRID` | Wait + switch region (maximum savings) |
+
+**Usage**:
+```bash
+# Test scheduler with different criticality levels
+python carbon_scheduler.py normal my-pipeline
+python carbon_scheduler.py critical my-pipeline
+python carbon_scheduler.py low my-pipeline
+```
+
+**MAIZX Formula**:
+```
+MAIZ_RANKING = w1×CFP + w2×FCFP + w3×CP_RATIO + w4×SCHEDULE_WEIGHT
+
+CFP = Current Carbon Footprint (normalized)
+FCFP = Forecasted Carbon Footprint
+CP_RATIO = Computing Power Ratio (region efficiency)
+SCHEDULE_WEIGHT = Deadline/priority factor
 ```
 
 ## CLI Usage
@@ -166,4 +205,29 @@ AUTO_TRIGGER_RUN_NOW=true
 AWS_DEFAULT_REGION=eu-west-2
 MIN_SAVINGS_DEFER=15
 MAX_DEFER_HOURS=24
+
+# Carbon Scheduler v2.0 (MAIZX Algorithm)
+ALLOW_HYBRID=true                  # Enable combined time+space strategy
+ALLOW_ELASTIC_SCALING=true         # Scale resources based on carbon
+ALPHA_FAIRNESS=0.5                 # 0=fair, 1=greedy region selection
+DYNAMIC_SLACK=true                 # Extend wait window for high savings
+FORECAST_CONFIDENCE_THRESHOLD=0.7  # Min forecast confidence
+
+# MAIZX Weights (sum to 1.0)
+MAIZX_W_CFP=0.30                   # Current carbon footprint
+MAIZX_W_FCFP=0.30                  # Forecasted carbon footprint
+MAIZX_W_CP_RATIO=0.20              # Region efficiency
+MAIZX_W_SCHEDULE=0.20              # Deadline priority
 ```
+
+## Research Papers
+
+The carbon scheduler implements algorithms from these papers (in `researchPaper/`):
+
+| Paper | Algorithm | Impact |
+|-------|-----------|--------|
+| MAIZX Framework | Weighted ranking | 85% emission reduction |
+| Green Federated Learning | α-fair allocation, slack optimization | 20-60% extra savings |
+| CarbonFlex | Elastic scaling, historical learning | 57% reduction |
+| CarbonX | Forecast uncertainty | Better reliability |
+| CarbonScaler | Resource scaling | 51% reduction |
