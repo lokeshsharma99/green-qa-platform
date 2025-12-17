@@ -2006,7 +2006,7 @@ function renderPipelineTable(pipelines) {
     if (!pipelines || pipelines.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="10" style="text-align: center; padding: 40px; color: var(--grey-500);">
+                <td colspan="8" style="text-align: center; padding: 40px; color: var(--grey-500);">
                     <div style="font-size: 16px; margin-bottom: 8px;">No pipeline history yet</div>
                     <div style="font-size: 14px;">Run pipelines via CI/CD to see execution data here</div>
                 </td>
@@ -2029,34 +2029,6 @@ function renderPipelineTable(pipelines) {
         const duration = pipeline.duration_minutes ? `${pipeline.duration_minutes}m` : (pipeline.duration || '--');
         const energy = pipeline.energy_j || (pipeline.carbon_g || pipeline.carbon || 0) * 1000; // Estimate if not available
         const carbon = pipeline.optimal_sci || pipeline.carbon_g || pipeline.carbon || 0;
-        const status = pipeline.pipeline_status || pipeline.status || 'unknown';
-        
-        // Calculate vs baseline
-        const baselineChange = baseline > 0 ? ((carbon - baseline) / baseline) * 100 : 0;
-        const baselineDisplay = Math.abs(baselineChange) < 1 ? '—' : 
-            `<span class="commit-change ${baselineChange >= 0 ? 'negative' : 'positive'}">
-                ${baselineChange >= 0 ? '+' : ''}${baselineChange.toFixed(1)}%
-            </span>`;
-        
-        // Status styling for pipelines
-        let statusClass = 'status-normal';
-        let statusLabel = status;
-        if (status === 'successful' || status === 'optimized') {
-            statusClass = 'status-optimized';
-            statusLabel = 'Optimized';
-        } else if (status === 'failed') {
-            statusClass = 'status-warning';
-            statusLabel = 'Failed';
-        } else if (status === 'cancelled') {
-            statusClass = 'status-normal';
-            statusLabel = 'Cancelled';
-        } else if (Math.abs(baselineChange) < 10) {
-            statusClass = 'status-optimized';
-            statusLabel = 'Stable';
-        } else if (baselineChange > 20) {
-            statusClass = 'status-warning';
-            statusLabel = 'Critical';
-        }
         
         const executionId = pipeline.execution_id || pipeline.pipeline_execution_id || '--';
         const shortExecutionId = executionId.length > 8 ? executionId.substring(0, 8) + '...' : executionId;
@@ -2067,12 +2039,10 @@ function renderPipelineTable(pipelines) {
                 <td>${pipelineName}</td>
                 <td class="text-mono text-sm" title="${executionId}">${shortExecutionId}</td>
                 <td class="text-mono">${region}</td>
-                <td class="text-mono">${intensity.toFixed(0)} <span class="text-muted">gCO₂/kWh</span></td>
                 <td class="text-mono">${duration}</td>
-                <td class="text-mono">${(energy / 1000).toFixed(0)} <span class="text-muted">J</span></td>
-                <td class="text-mono">${carbon.toFixed(1)} <span class="text-muted">mg</span></td>
-                <td>${baselineDisplay}</td>
-                <td><span class="commit-status ${statusClass}">${statusLabel}</span></td>
+                <td class="text-mono">${energy.toFixed(1)}</td>
+                <td class="text-mono">${intensity.toFixed(1)}</td>
+                <td class="text-mono">${carbon.toFixed(2)}</td>
             </tr>
         `;
     }).join('');
