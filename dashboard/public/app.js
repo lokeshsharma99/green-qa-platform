@@ -541,8 +541,9 @@ function getCarbonEquivalents(grams) {
     
     return {
         // Transportation - STANDARDIZED (0.2 kg CO₂/km = 200g/km)
-        carKm: carKm.toFixed(1),
-        carMiles: (carKm * 0.621371).toFixed(1),   // Convert km to miles
+        // Use more precision for small values to avoid rounding errors
+        carKm: carKm < 1 ? carKm.toFixed(3) : carKm.toFixed(1),
+        carMiles: (carKm * 0.621371).toFixed(2),   // Convert km to miles
         
         // Technology
         phoneCharges: Math.round(grams / 8),       // 1 smartphone charge = ~8g CO₂
@@ -1090,13 +1091,18 @@ async function updateImpactSummary() {
     // Calculate actual savings from test history
     const savings = calculateCarbonSavings(tests);
     const monthlySavingsG = savings.saved;
-    const monthlySavingsKg = (monthlySavingsG / 1000).toFixed(1);
     
-    // Update main savings display
+    // Update main savings display - show grams for small values, kg for larger
     const monthlySavedEl = document.getElementById('monthly-carbon-saved');
     if (monthlySavedEl) {
         if (monthlySavingsG > 0) {
-            monthlySavedEl.textContent = `${monthlySavingsKg}kg of CO₂`;
+            if (monthlySavingsG >= 1000) {
+                // Show in kg for values >= 1kg
+                monthlySavedEl.textContent = `${(monthlySavingsG / 1000).toFixed(1)}kg of CO₂`;
+            } else {
+                // Show in grams for values < 1kg to avoid rounding confusion
+                monthlySavedEl.textContent = `${Math.round(monthlySavingsG)}g of CO₂`;
+            }
         } else {
             monthlySavedEl.textContent = 'No savings yet';
         }
@@ -2315,8 +2321,10 @@ async function renderOptimalTimeChart(selectedRegion = 'eu-west-2') {
     }));
     
     // Add "Now" as first entry
+    // Note: currentIntensity from state.regions is already the datacenter intensity (AWS-adjusted)
+    // so we use it directly without applying the formula again
     const nowSlot = {
-        datacenterIntensity: Math.round(currentIntensity * (1 - AWS_RENEWABLE_PCT) * PUE * 10) / 10,
+        datacenterIntensity: currentRegion ? currentIntensity : Math.round(currentIntensity * (1 - AWS_RENEWABLE_PCT) * PUE * 10) / 10,
         time: 'Now',
         from: new Date().toISOString()
     };
@@ -2450,9 +2458,9 @@ function updateOptimalTimeUI(mode, regionOrData = {}) {
                 optimalExplanation.textContent = reason;
             }
             
-            if (scheduleBtn && scheduleTime) {
-                scheduleBtn.style.display = 'flex';
-                scheduleTime.textContent = optimalTime;
+            // Schedule button hidden - feature not yet implemented
+            if (scheduleBtn) {
+                scheduleBtn.style.display = 'none';
             }
         }
     }
@@ -2615,9 +2623,16 @@ function calculateCarbonUI() {
     // Add personalized suggestions
     updateSuggestions(region, intensity, result, duration, vcpu, memory);
     
+    // Show calculation details (the math breakdown)
+    updateCalculationDetails(region, regionName, intensity, duration, vcpu, memory, result);
+    
     // Show results with animation
     const resultsEl = document.getElementById('calc-results');
     resultsEl.classList.add('calculated');
+    
+    // Show the calculation details section
+    const detailsSection = document.getElementById('calculation-details');
+    if (detailsSection) detailsSection.style.display = 'block';
     
     // Scroll to results
     resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -2629,25 +2644,44 @@ function updateCarbonComparison(carbonGrams) {
     const comparisonEl = document.getElementById('result-comparison');
     if (!comparisonEl) return;
     
-    // Real-world equivalents with corrected values
+    // Real-world equivalents using standardized formulas
     const equivalents = getCarbonEquivalents(carbonGrams);
+    const carKm = parseFloat(equivalents.carKm);
+    const treeDays = parseFloat(equivalents.treeDays);
     
-    let comparisonText = '';
-    if (carbonGrams < 1) {
-        comparisonText = `That's like charging your phone ${equivalents.phoneCharges} times`;
-    } else if (carbonGrams < 10) {
-        comparisonText = `Equivalent to ${equivalents.carKm} km by car or ${equivalents.coffeeCups} cups of coffee`;
-    } else if (carbonGrams < 100) {
-        comparisonText = `Same as driving ${equivalents.carKm} km or streaming HD video for ${equivalents.streamingHours} hours`;
-    } else if (carbonGrams < 1000) {
-        comparisonText = `Equivalent to ${equivalents.carKm} km of driving or ${equivalents.treesYear} trees growing for a year`;
+    // Format car distance appropriately
+    let carText = '';
+    if (carKm < 0.01) {
+        carText = `${Math.round(carKm * 100000)} cm by car`;
+    } else if (carKm < 1) {
+        carText = `${Math.round(carKm * 1000)} m by car`;
     } else {
-        comparisonText = `Equivalent to ${equivalents.carKm} km of driving or ${(carbonGrams/1000).toFixed(1)} kg of CO₂`;
+        carText = `${carKm.toFixed(1)} km by car`;
     }
     
+    // Format tree absorption appropriately
+    let treeText = '';
+    if (treeDays < 0.04) { // Less than 1 tree-hour
+        treeText = `${Math.round(treeDays * 24 * 60)} tree-minutes to absorb`;
+    } else if (treeDays < 1) {
+        treeText = `${Math.round(treeDays * 24)} tree-hours to absorb`;
+    } else if (treeDays < 365) {
+        treeText = `${Math.round(treeDays)} tree-days to absorb`;
+    } else {
+        treeText = `${parseFloat(equivalents.treesYear).toFixed(1)} tree-years to absorb`;
+    }
+    
+    // Always use car and tree for consistency
+    let comparisonText = `🚗 ${carText} • 🌳 ${treeText}`;
+    
     comparisonEl.innerHTML = `
-        <strong>Real-world comparison:</strong><br>
-        ${comparisonText}
+        <div class="comparison-result" data-edu="carbonEquivalents">
+            <strong>Real-world comparison:</strong><br>
+            ${comparisonText}
+        </div>
+        <div class="comparison-methodology">
+            <small>Based on 200g CO₂/km for cars, 20kg CO₂/year per tree</small>
+        </div>
     `;
 }
 
@@ -2699,7 +2733,105 @@ function updateSuggestions(region, intensity, result, duration, vcpu, memory) {
     ).join('');
 }
 
+// ============================================
+// Calculation Details (Show the Math)
+// ============================================
 
+function updateCalculationDetails(region, regionName, intensity, duration, vcpu, memory, result) {
+    // Get region config for AWS renewable percentage
+    const regionConfig = AWS_REGIONS[region] || {};
+    const awsRenewablePct = regionConfig.aws_renewable_pct || 0.70;
+    const PUE = 1.15;
+    
+    // Get grid intensity (reverse calculate if needed)
+    const gridIntensity = state.regions[region]?.grid_intensity || Math.round(intensity / ((1 - awsRenewablePct) * PUE));
+    
+    // Energy calculation breakdown
+    const energyEl = document.getElementById('formula-energy');
+    if (energyEl) {
+        const cpuTdp = 10; // watts per vCPU
+        const memPower = 0.375; // watts per GB
+        const cpuPower = vcpu * cpuTdp;
+        const memPowerTotal = memory * memPower;
+        const totalPower = (cpuPower + memPowerTotal) * PUE;
+        const hours = duration / 60;
+        
+        energyEl.innerHTML = `
+            <div class="formula-line"><strong>Step 1: Calculate power consumption</strong></div>
+            <div class="formula-line">CPU Power = ${vcpu} vCPUs × ${cpuTdp}W/vCPU = <strong>${cpuPower}W</strong></div>
+            <div class="formula-line">Memory Power = ${memory}GB × ${memPower}W/GB = <strong>${memPowerTotal.toFixed(1)}W</strong></div>
+            <div class="formula-line">Total Power = (${cpuPower} + ${memPowerTotal.toFixed(1)}) × PUE(${PUE}) = <strong>${totalPower.toFixed(1)}W</strong></div>
+            <div class="formula-line"><span class="formula-note">PUE = Power Usage Effectiveness (AWS 2024: 1.15)</span></div>
+            <div class="formula-line"><strong>Step 2: Calculate energy</strong></div>
+            <div class="formula-line">Duration = ${duration} minutes = ${hours.toFixed(2)} hours</div>
+            <div class="formula-result">Energy = ${totalPower.toFixed(1)}W × ${hours.toFixed(2)}h ÷ 1000 = <strong>${result.energyKwh.toFixed(4)} kWh</strong></div>
+        `;
+    }
+    
+    // Operational carbon breakdown
+    const operationalEl = document.getElementById('formula-operational');
+    if (operationalEl) {
+        operationalEl.innerHTML = `
+            <div class="formula-line"><strong>AWS Data Center Carbon Intensity:</strong></div>
+            <div class="formula-line">Grid Intensity (${regionName}) = ${gridIntensity} gCO₂/kWh</div>
+            <div class="formula-line">AWS Renewable Energy = ${Math.round(awsRenewablePct * 100)}%</div>
+            <div class="formula-line">DC Intensity = Grid × (1 - Renewable%) × PUE</div>
+            <div class="formula-line">DC Intensity = ${gridIntensity} × (1 - ${(awsRenewablePct * 100).toFixed(0)}%) × ${PUE}</div>
+            <div class="formula-line">DC Intensity = ${gridIntensity} × ${(1 - awsRenewablePct).toFixed(2)} × ${PUE} = <strong>${intensity.toFixed(1)} gCO₂/kWh</strong></div>
+            <div class="formula-result">Operational Carbon = ${result.energyKwh.toFixed(4)} kWh × ${intensity.toFixed(1)} gCO₂/kWh = <strong>${result.operationalG.toFixed(1)}g CO₂</strong></div>
+        `;
+    }
+    
+    // Embodied carbon breakdown
+    const embodiedEl = document.getElementById('formula-embodied');
+    if (embodiedEl) {
+        const serverLifespan = 4; // years
+        const serverEmbodied = 1000; // kg CO2 per server
+        const hoursInLifespan = serverLifespan * 365 * 24;
+        const hours = duration / 60;
+        
+        embodiedEl.innerHTML = `
+            <div class="formula-line"><strong>Hardware manufacturing emissions (amortized):</strong></div>
+            <div class="formula-line">Server embodied carbon ≈ ${serverEmbodied}kg CO₂ (manufacturing)</div>
+            <div class="formula-line">Server lifespan = ${serverLifespan} years = ${hoursInLifespan.toLocaleString()} hours</div>
+            <div class="formula-line">Your usage = ${hours.toFixed(2)} hours with ${vcpu} vCPUs</div>
+            <div class="formula-line"><span class="formula-note">Assumes shared infrastructure, proportional allocation</span></div>
+            <div class="formula-result">Embodied Carbon ≈ <strong>${result.embodiedG.toFixed(1)}g CO₂</strong></div>
+        `;
+    }
+    
+    // Real-world equivalents breakdown
+    const equivalentsEl = document.getElementById('formula-equivalents');
+    if (equivalentsEl) {
+        const totalKg = result.totalG / 1000;
+        const carKm = totalKg / 0.2;
+        const treeDays = (totalKg / 20) * 365;
+        
+        equivalentsEl.innerHTML = `
+            <div class="formula-line"><strong>Car driving equivalent:</strong></div>
+            <div class="formula-line">Factor: Average car emits 200g CO₂/km (0.2 kg/km)</div>
+            <div class="formula-line">km = ${totalKg.toFixed(4)} kg ÷ 0.2 kg/km = <strong>${(carKm * 1000).toFixed(0)} meters</strong></div>
+            <div class="formula-line"><strong>Tree absorption equivalent:</strong></div>
+            <div class="formula-line">Factor: Mature tree absorbs 20kg CO₂/year</div>
+            <div class="formula-line">Tree-years = ${totalKg.toFixed(4)} kg ÷ 20 kg/year = ${(totalKg / 20).toFixed(4)} years</div>
+            <div class="formula-line">Tree-days = ${(totalKg / 20).toFixed(4)} × 365 = <strong>${treeDays.toFixed(1)} tree-days</strong></div>
+            <div class="formula-result">Total: <strong>${result.totalG.toFixed(1)}g CO₂</strong> = ${(carKm * 1000).toFixed(0)}m driving = ${treeDays.toFixed(1)} tree-days</div>
+        `;
+    }
+}
+
+function toggleCalculationDetails() {
+    const content = document.getElementById('details-content');
+    const icon = document.getElementById('details-toggle-icon');
+    
+    if (content && icon) {
+        content.classList.toggle('open');
+        icon.classList.toggle('open');
+    }
+}
+
+// Export toggle function globally
+window.toggleCalculationDetails = toggleCalculationDetails;
 
 // ============================================
 // CSV Export
@@ -3414,8 +3546,6 @@ function scheduleOptimalTime() {
     console.log(`Scheduling tests for optimal time: ${scheduleTime}`);
 }
 
-// Removed runTestsNow function - no longer needed
-
 // Expose functions globally for inline onclick handlers
 window.refreshData = refreshData;
 window.calculateCarbonUI = calculateCarbonUI;
@@ -3426,7 +3556,6 @@ window.updatePotentialSavings = updatePotentialSavings;
 window.updateRegionComparison = updateRegionComparison;
 window.updateOptimalTimeForRegion = updateOptimalTimeForRegion;
 window.scheduleOptimalTime = scheduleOptimalTime;
-window.runTestsNow = runTestsNow;
 
 
 // ============================================

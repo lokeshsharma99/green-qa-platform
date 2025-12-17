@@ -228,8 +228,8 @@ const EDUCATIONAL_CONTENT = {
         • A mature tree absorbs ~20 kg CO₂ per year
         • Example: 0.6 kg CO₂ = ~11 tree-days
         
-        These are illustrative comparisons, not formal GHG accounting.
-        Sources: EPA, DEFRA, EEA/ICCT for vehicles; forestry inventories for trees.`,
+        ⚠️ IMPORTANT DISCLAIMER
+        These equivalents are illustrative only and should not be used for formal GHG inventories or carbon offsets. Emissions are calculated in accordance with GHG Protocol / ISO 14064 standards. Equivalents use factors from EPA, DEFRA, and EEA/ICCT.`,
         learnMore: "https://www.epa.gov/energy/greenhouse-gas-equivalencies-calculator"
     },
     
@@ -743,17 +743,34 @@ class EducationalTooltips {
             learnMoreLink.style.display = 'none';
         }
         
-        // Position tooltip
+        // Position tooltip with better viewport handling
         const rect = anchorElement.getBoundingClientRect();
-        const tooltipRect = this.tooltipElement.getBoundingClientRect();
+        const tooltipWidth = 340;
+        const tooltipMaxHeight = window.innerHeight * 0.8;
+        const padding = 20;
         
-        let left = rect.left + rect.width / 2 - 150;
+        // Calculate horizontal position (center on anchor, but keep in viewport)
+        let left = rect.left + rect.width / 2 - tooltipWidth / 2;
+        if (left < padding) left = padding;
+        if (left + tooltipWidth > window.innerWidth - padding) {
+            left = window.innerWidth - tooltipWidth - padding;
+        }
+        
+        // Calculate vertical position (prefer below, but flip if needed)
         let top = rect.bottom + 10;
+        const spaceBelow = window.innerHeight - rect.bottom - padding;
+        const spaceAbove = rect.top - padding;
         
-        // Keep within viewport
-        if (left < 10) left = 10;
-        if (left + 300 > window.innerWidth) left = window.innerWidth - 310;
-        if (top + 200 > window.innerHeight) top = rect.top - 210;
+        // If not enough space below and more space above, position above
+        if (spaceBelow < 200 && spaceAbove > spaceBelow) {
+            top = Math.max(padding, rect.top - Math.min(tooltipMaxHeight, spaceAbove) - 10);
+        } else {
+            // Ensure tooltip doesn't go below viewport
+            top = Math.min(top, window.innerHeight - tooltipMaxHeight - padding);
+        }
+        
+        // Ensure top is never negative
+        top = Math.max(padding, top);
         
         this.tooltipElement.style.left = `${left}px`;
         this.tooltipElement.style.top = `${top}px`;

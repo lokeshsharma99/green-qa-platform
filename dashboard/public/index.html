@@ -78,17 +78,18 @@
                                     You've saved roughly <strong id="monthly-carbon-saved">Loading...</strong> this month by shifting workloads.
                                 </span>
                             </div>
-                            <div class="impact-equivalents" data-edu="carbonEquivalents">
-                                <div class="equivalent-item" data-edu="carEquivalent">
+                            <div class="impact-equivalents">
+                                <div class="equivalent-item">
                                     <span class="equivalent-icon">🚗</span>
                                     <span class="equivalent-text">Equivalent to driving <strong id="equivalent-driving">Loading...</strong> by car.</span>
                                 </div>
-                                <div class="equivalent-item" data-edu="treeEquivalent">
+                                <div class="equivalent-item">
                                     <span class="equivalent-icon">🌳</span>
                                     <span class="equivalent-text">Would require <strong id="equivalent-trees">Loading...</strong> growing for a year to absorb.</span>
                                 </div>
                             </div>
                             <div class="impact-methodology">
+                                <span class="methodology-disclaimer">Based on 200g CO₂/km for cars, 20kg CO₂/year per tree</span>
                                 <a href="#" onclick="showGlossaryDetail('carbonEquivalents'); return false;" class="methodology-link">How are these calculated?</a>
                             </div>
                             <div class="impact-action">
@@ -696,6 +697,44 @@
                                     </div>
                                 </div>
 
+                                <!-- Calculation Details (Show the Math) -->
+                                <div class="calculation-details" id="calculation-details" style="display: none;">
+                                    <div class="details-header" onclick="toggleCalculationDetails()">
+                                        <span class="details-title">📊 Show Me The Math</span>
+                                        <span class="details-toggle" id="details-toggle-icon">▼</span>
+                                    </div>
+                                    <div class="details-content" id="details-content">
+                                        <div class="formula-section">
+                                            <div class="formula-title">🔌 Energy Calculation</div>
+                                            <div class="formula-box" id="formula-energy">
+                                                <!-- Dynamic formula will be added here -->
+                                            </div>
+                                        </div>
+                                        <div class="formula-section">
+                                            <div class="formula-title">⚡ Operational Carbon (from electricity)</div>
+                                            <div class="formula-box" id="formula-operational">
+                                                <!-- Dynamic formula will be added here -->
+                                            </div>
+                                        </div>
+                                        <div class="formula-section">
+                                            <div class="formula-title">🏭 Embodied Carbon (from hardware)</div>
+                                            <div class="formula-box" id="formula-embodied">
+                                                <!-- Dynamic formula will be added here -->
+                                            </div>
+                                        </div>
+                                        <div class="formula-section">
+                                            <div class="formula-title">🌍 Real-World Equivalents</div>
+                                            <div class="formula-box" id="formula-equivalents">
+                                                <!-- Dynamic formula will be added here -->
+                                            </div>
+                                        </div>
+                                        <div class="formula-disclaimer">
+                                            ⚠️ These calculations follow <a href="https://sci.greensoftware.foundation/" target="_blank">Green Software Foundation SCI</a> methodology. 
+                                            Equivalents are illustrative only (EPA, DEFRA sources) and should not be used for formal GHG reporting.
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="result-actions">
                                     <div class="action-suggestions">
                                         <h5>Ways to Reduce Your Impact</h5>
@@ -901,9 +940,6 @@
     
     <!-- Educational Features -->
     <script src="educational-tooltips.js"></script>
-    
-    <!-- Test History Data (generated by test_real_pipeline.py) -->
-    <script src="test-history-data.js"></script>
     
     <!-- Main Application -->
     <script src="app.js?v=20251215"></script>
