@@ -216,47 +216,103 @@ Examples:
     savings_percent = (savings_g / current_sci * 100) if current_sci > 0 else 0
     
     # =========================================================================
-    # Trigger pipeline (if not simulation)
+    # Trigger or Schedule pipeline (if not simulation)
     # =========================================================================
     pipeline_status = 'skipped'
     execution_id = None
+    schedule_name = None
     
     if not simulate:
-        if not args.json:
-            print(f"\n🚀 Triggering Pipeline...")
-            print(f"   Pipeline: {final_pipeline_name}")
-            print(f"   Region: {final_pipeline_region}")
-            print(f"   Strategy: {strategy.value.upper()}")
+        import boto3
         
-        try:
-            import boto3
-            
-            aws_access_key = os.environ.get('AWS_ACCESS_KEY_ID')
-            aws_secret_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
-            aws_session_token = os.environ.get('AWS_SESSION_TOKEN')
-            
+        aws_access_key = os.environ.get('AWS_ACCESS_KEY_ID')
+        aws_secret_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
+        aws_session_token = os.environ.get('AWS_SESSION_TOKEN')
+        
+        def get_boto_client(service, region):
             if aws_session_token:
-                client = boto3.client(
-                    'codepipeline',
-                    region_name=final_pipeline_region,
+                return boto3.client(
+                    service,
+                    region_name=region,
                     aws_access_key_id=aws_access_key,
                     aws_secret_access_key=aws_secret_key,
                     aws_session_token=aws_session_token
                 )
-            else:
-                client = boto3.client('codepipeline', region_name=final_pipeline_region)
-            
-            response = client.start_pipeline_execution(name=final_pipeline_name)
-            execution_id = response.get('pipelineExecutionId')
-            pipeline_status = 'triggered'
-            
+            return boto3.client(service, region_name=region)
+        
+        # Check if TIME_SHIFT - schedule for later using EventBridge Scheduler
+        if strategy.value == 'time_shift' and decision.wait_hours > 0:
             if not args.json:
-                print(f"   ✅ Pipeline triggered: {execution_id}")
+                print(f"\n⏰ Scheduling Pipeline (TIME_SHIFT)...")
+                print(f"   Pipeline: {final_pipeline_name}")
+                print(f"   Region: {final_pipeline_region}")
+                print(f"   Scheduled: {decision.scheduled_time.strftime('%Y-%m-%d %H:%M UTC')}")
+                print(f"   Wait: {decision.wait_hours:.1f} hours")
+            
+            try:
+                scheduler = get_boto_client('scheduler', final_pipeline_region)
                 
-        except Exception as e:
-            pipeline_status = 'failed'
+                # Create one-time schedule
+                schedule_name = f"carbon-aware-{final_pipeline_name}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                schedule_time = decision.scheduled_time.strftime('%Y-%m-%dT%H:%M:%S')
+                
+                # Get pipeline ARN
+                pipeline_arn = selected_pipeline.get('pipeline_arn', 
+                    f"arn:aws:codepipeline:{final_pipeline_region}:621836152823:{final_pipeline_name}")
+                
+                # EventBridge Scheduler role ARN (must exist in your account)
+                scheduler_role_arn = os.environ.get('EVENTBRIDGE_ROLE_ARN',
+                    'arn:aws:iam::621836152823:role/EventBridgeSchedulerRole')
+                
+                response = scheduler.create_schedule(
+                    Name=schedule_name,
+                    ScheduleExpression=f"at({schedule_time})",
+                    ScheduleExpressionTimezone='UTC',
+                    FlexibleTimeWindow={'Mode': 'OFF'},
+                    Target={
+                        'Arn': pipeline_arn,
+                        'RoleArn': scheduler_role_arn,
+                        'Input': '{}'
+                    },
+                    ActionAfterCompletion='DELETE'  # Auto-delete after execution
+                )
+                
+                execution_id = schedule_name
+                pipeline_status = 'scheduled'
+                
+                if not args.json:
+                    print(f"   ✅ Pipeline scheduled: {schedule_name}")
+                    print(f"   📅 Will trigger at: {decision.scheduled_time.strftime('%Y-%m-%d %H:%M UTC')}")
+                    
+            except Exception as e:
+                if not args.json:
+                    print(f"   ⚠️ EventBridge scheduling failed: {e}")
+                    print(f"   🔄 Falling back to immediate trigger...")
+                # Fall through to immediate trigger
+                strategy = Strategy.RUN_NOW
+        
+        # Immediate trigger (RUN_NOW, SPACE_SHIFT, HYBRID, or fallback)
+        if pipeline_status != 'scheduled':
             if not args.json:
-                print(f"   ❌ Trigger failed: {e}")
+                print(f"\n🚀 Triggering Pipeline...")
+                print(f"   Pipeline: {final_pipeline_name}")
+                print(f"   Region: {final_pipeline_region}")
+                print(f"   Strategy: {strategy.value.upper()}")
+            
+            try:
+                client = get_boto_client('codepipeline', final_pipeline_region)
+                
+                response = client.start_pipeline_execution(name=final_pipeline_name)
+                execution_id = response.get('pipelineExecutionId')
+                pipeline_status = 'triggered'
+                
+                if not args.json:
+                    print(f"   ✅ Pipeline triggered: {execution_id}")
+                    
+            except Exception as e:
+                pipeline_status = 'failed'
+                if not args.json:
+                    print(f"   ❌ Trigger failed: {e}")
     
     # =========================================================================
     # Build result
@@ -266,6 +322,7 @@ Examples:
         'pipeline_name': final_pipeline_name,
         'pipeline_region': final_pipeline_region,
         'execution_id': execution_id,
+        'schedule_name': schedule_name,  # For TIME_SHIFT scheduled executions
         'status': pipeline_status,
         'strategy': strategy.value,
         'criticality': criticality,
@@ -303,13 +360,19 @@ Examples:
         print("\n" + "=" * 70)
         print("CARBON-AWARE PIPELINE EXECUTION SUMMARY")
         print("=" * 70)
+        
+        # Show scheduled time for TIME_SHIFT
+        scheduled_info = ""
+        if pipeline_status == 'scheduled' and decision.scheduled_time:
+            scheduled_info = f"\n   📅 Scheduled: {decision.scheduled_time.strftime('%Y-%m-%d %H:%M UTC')}"
+        
         print(f"""
    🎯 STRATEGY: {strategy.value.upper()}
    ─────────────────────────────────────────
    Pipeline:    {final_pipeline_name}
    Region:      {final_pipeline_region} ({selected_pipeline['location']})
    Status:      {pipeline_status.upper()}
-   Execution:   {execution_id or 'N/A'}
+   Execution:   {execution_id or 'N/A'}{scheduled_info}
    
    🌍 CARBON OPTIMIZATION:
    ─────────────────────────────────────────

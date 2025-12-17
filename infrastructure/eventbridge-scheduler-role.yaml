@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM Role for EventBridge Scheduler to trigger CodePipeline (Carbon-Aware Scheduling)'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+  
+  PipelineWestName:
+    Type: String
+    Default: gds-west-pipeline-pipeline
+    Description: CodePipeline name in eu-west-2
+  
+  PipelineNorthName:
+    Type: String
+    Default: gds-north-pipeline-pipeline
+    Description: CodePipeline name in eu-north-1
+
+Resources:
+  # IAM Role for EventBridge Scheduler
+  EventBridgeSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'EventBridgeSchedulerRole-${Environment}'
+      Description: 'Allows EventBridge Scheduler to trigger CodePipeline for carbon-aware scheduling'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodePipelineStartExecution
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Allow starting pipeline executions in eu-west-2
+              - Effect: Allow
+                Action:
+                  - codepipeline:StartPipelineExecution
+                Resource:
+                  - !Sub 'arn:aws:codepipeline:eu-west-2:${AWS::AccountId}:${PipelineWestName}'
+              # Allow starting pipeline executions in eu-north-1
+              - Effect: Allow
+                Action:
+                  - codepipeline:StartPipelineExecution
+                Resource:
+                  - !Sub 'arn:aws:codepipeline:eu-north-1:${AWS::AccountId}:${PipelineNorthName}'
+      Tags:
+        - Key: Project
+          Value: ZeroCarb
+        - Key: Purpose
+          Value: Carbon-Aware-Scheduling
+
+Outputs:
+  EventBridgeSchedulerRoleArn:
+    Description: ARN of the EventBridge Scheduler Role
+    Value: !GetAtt EventBridgeSchedulerRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-SchedulerRoleArn'
+  
+  EventBridgeSchedulerRoleName:
+    Description: Name of the EventBridge Scheduler Role
+    Value: !Ref EventBridgeSchedulerRole
