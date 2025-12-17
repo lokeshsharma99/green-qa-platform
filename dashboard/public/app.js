@@ -244,10 +244,13 @@ function calculateCarbonSavings(tests) {
 // ============================================
 // API Clients
 // ============================================
+// NOTE: For production, move API keys to environment variables or a backend proxy
+// These are demo/free-tier keys - replace with your own for production use
 
 const EmberAPI = {
     baseUrl: 'https://api.ember-energy.org/v1',
-    apiKey: '270ca2d8-4b3c-c5dc-0156-ec804ef514e8',
+    // Demo key - get your own at https://ember-climate.org/data/api/
+    apiKey: window.ENV?.EMBER_API_KEY || '270ca2d8-4b3c-c5dc-0156-ec804ef514e8',
 
     async getCarbonIntensity(countryCode) {
         try {
@@ -280,7 +283,8 @@ const EmberAPI = {
 
 const ElectricityMapsAPI = {
     baseUrl: 'https://api.electricitymaps.com/v3',
-    token: '7Cq9hfFAKl0gAtYNhvc2',
+    // Demo key - get your own at https://www.electricitymaps.com/
+    token: window.ENV?.ELECTRICITY_MAPS_TOKEN || '7Cq9hfFAKl0gAtYNhvc2',
 
     async getCarbonIntensity(region) {
         try {
@@ -1076,15 +1080,34 @@ async function updateImpactSummary() {
     // Load actual pipeline history to calculate real savings
     const tests = await loadPipelineHistory();
     
+    // Get elements
+    const monthlySavedEl = document.getElementById('monthly-carbon-saved');
+    const drivingEl = document.getElementById('equivalent-driving');
+    const treesEl = document.getElementById('equivalent-trees');
+    const baselineEl = document.getElementById('impact-baseline');
+    const baselineRegionEl = document.getElementById('baseline-region');
+    const atScaleEl = document.getElementById('impact-at-scale');
+    const atScaleSavingsEl = document.getElementById('at-scale-savings');
+    
+    // Find highest-carbon region for baseline comparison
+    const regions = Object.values(state.regions);
+    let highestRegion = { name: 'eu-central-1', intensity: 380 }; // Default fallback
+    if (regions.length > 0) {
+        highestRegion = regions.reduce((max, r) => r.intensity > max.intensity ? r : max);
+    }
+    
+    // Update baseline region name
+    if (baselineRegionEl) {
+        baselineRegionEl.textContent = highestRegion.name;
+    }
+    
     if (tests.length === 0) {
         // No test data available - show empty state
-        const monthlySavedEl = document.getElementById('monthly-carbon-saved');
-        const drivingEl = document.getElementById('equivalent-driving');
-        const treesEl = document.getElementById('equivalent-trees');
-        
         if (monthlySavedEl) monthlySavedEl.textContent = 'No data yet';
         if (drivingEl) drivingEl.textContent = 'Run tests to see impact';
         if (treesEl) treesEl.textContent = 'No data yet';
+        if (baselineEl) baselineEl.style.display = 'none';
+        if (atScaleEl) atScaleEl.style.display = 'none';
         return;
     }
     
@@ -1093,18 +1116,38 @@ async function updateImpactSummary() {
     const monthlySavingsG = savings.saved;
     
     // Update main savings display - show grams for small values, kg for larger
-    const monthlySavedEl = document.getElementById('monthly-carbon-saved');
     if (monthlySavedEl) {
         if (monthlySavingsG > 0) {
             if (monthlySavingsG >= 1000) {
-                // Show in kg for values >= 1kg
                 monthlySavedEl.textContent = `${(monthlySavingsG / 1000).toFixed(1)}kg of CO₂`;
             } else {
-                // Show in grams for values < 1kg to avoid rounding confusion
                 monthlySavedEl.textContent = `${Math.round(monthlySavingsG)}g of CO₂`;
             }
         } else {
             monthlySavedEl.textContent = 'No savings yet';
+        }
+    }
+    
+    // Show/hide baseline explanation
+    if (baselineEl) {
+        baselineEl.style.display = monthlySavingsG > 0 ? 'block' : 'none';
+    }
+    
+    // Calculate and display "At Scale" projection (1000 teams)
+    if (atScaleEl && atScaleSavingsEl) {
+        if (monthlySavingsG > 0) {
+            const atScaleG = monthlySavingsG * 1000;
+            if (atScaleG >= 1000000) {
+                // Show in tonnes for very large values
+                atScaleSavingsEl.textContent = `${(atScaleG / 1000000).toFixed(1)} tonnes CO₂`;
+            } else if (atScaleG >= 1000) {
+                atScaleSavingsEl.textContent = `${(atScaleG / 1000).toFixed(1)} kg CO₂`;
+            } else {
+                atScaleSavingsEl.textContent = `${Math.round(atScaleG)} g CO₂`;
+            }
+            atScaleEl.style.display = 'block';
+        } else {
+            atScaleEl.style.display = 'none';
         }
     }
     
@@ -1113,11 +1156,9 @@ async function updateImpactSummary() {
         const equivalents = getCarbonEquivalents(monthlySavingsG);
         
         // Update driving equivalent using standardized formula: km = kg / 0.2
-        const drivingEl = document.getElementById('equivalent-driving');
         if (drivingEl) {
             const carKm = parseFloat(equivalents.carKm);
             if (carKm < 1) {
-                // Show in meters for small values
                 drivingEl.textContent = `${Math.round(carKm * 1000)} m`;
             } else {
                 drivingEl.textContent = `${carKm.toFixed(1)} km`;
@@ -1125,26 +1166,18 @@ async function updateImpactSummary() {
         }
         
         // Update trees equivalent using standardized formula: tree-days = (kg / 20) × 365
-        const treesEl = document.getElementById('equivalent-trees');
         if (treesEl) {
             const treeDays = parseFloat(equivalents.treeDays);
-            
             if (treeDays < 1) {
-                // Show in tree-hours for very small values
                 treesEl.textContent = `${Math.round(treeDays * 24)} tree-hours`;
             } else if (treeDays < 365) {
                 treesEl.textContent = `${Math.round(treeDays)} tree-days`;
             } else {
-                // Show in tree-years for large values
                 const treeYears = parseFloat(equivalents.treesYear);
                 treesEl.textContent = `${treeYears.toFixed(1)} tree-years`;
             }
         }
     } else {
-        // No savings yet
-        const drivingEl = document.getElementById('equivalent-driving');
-        const treesEl = document.getElementById('equivalent-trees');
-        
         if (drivingEl) drivingEl.textContent = 'Run optimized tests to see impact';
         if (treesEl) treesEl.textContent = 'No savings yet';
     }
@@ -1153,6 +1186,9 @@ async function updateImpactSummary() {
 function updateInsights(lowest, highest, avgIntensity, lowCarbonCount, totalRegions) {
     // Update the new combined region optimizer
     updateRegionComparison();
+    
+    // Update the CTA section with dynamic data
+    updateCTASection();
     
     // Removed elements - no longer updating:
     // - insight-best-region (now part of region optimizer)
@@ -1239,6 +1275,26 @@ function updateRegionComparison() {
 // Legacy function for backward compatibility
 function updatePotentialSavings() {
     updateRegionComparison();
+}
+
+// Update the "What You Can Do" CTA section with dynamic data
+function updateCTASection() {
+    const regions = Object.values(state.regions);
+    if (regions.length === 0) return;
+    
+    // Find best and worst regions
+    const bestRegion = regions.reduce((min, r) => r.intensity < min.intensity ? r : min);
+    const worstRegion = regions.reduce((max, r) => r.intensity > max.intensity ? r : max);
+    
+    // Calculate max potential savings
+    const maxSavingsPercent = Math.round(((worstRegion.intensity - bestRegion.intensity) / worstRegion.intensity) * 100);
+    
+    // Update CTA elements
+    const ctaBestRegionEl = document.getElementById('cta-best-region');
+    const ctaSavingsPctEl = document.getElementById('cta-savings-pct');
+    
+    if (ctaBestRegionEl) ctaBestRegionEl.textContent = bestRegion.name;
+    if (ctaSavingsPctEl) ctaSavingsPctEl.textContent = `${maxSavingsPercent}%`;
 }
 
 
@@ -3052,6 +3108,43 @@ function getCarbonFactorExample(fuel, factor, percentage) {
 // Main Refresh Function
 // ============================================
 
+// Show/hide error banner with retry button
+function showErrorBanner(message, show = true) {
+    let banner = document.getElementById('error-banner');
+    
+    if (!banner && show) {
+        // Create error banner if it doesn't exist
+        banner = document.createElement('div');
+        banner.id = 'error-banner';
+        banner.className = 'error-banner';
+        banner.innerHTML = `
+            <div class="error-banner-content">
+                <span class="error-icon">⚠️</span>
+                <span class="error-message">${message}</span>
+                <button class="error-retry-btn" onclick="refreshData()">Retry</button>
+                <button class="error-dismiss-btn" onclick="showErrorBanner('', false)">×</button>
+            </div>
+        `;
+        
+        // Insert after header
+        const header = document.querySelector('.header');
+        if (header && header.nextSibling) {
+            header.parentNode.insertBefore(banner, header.nextSibling);
+        } else {
+            document.body.insertBefore(banner, document.body.firstChild);
+        }
+    }
+    
+    if (banner) {
+        if (show) {
+            banner.querySelector('.error-message').textContent = message;
+            banner.style.display = 'block';
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+}
+
 async function refreshData() {
     console.log('🔄 Refreshing data...');
     
@@ -3060,6 +3153,12 @@ async function refreshData() {
         refreshBtn.classList.add('loading');
         refreshBtn.disabled = true;
     }
+    
+    // Hide any previous error banner
+    showErrorBanner('', false);
+    
+    let hasErrors = false;
+    let errorMessages = [];
     
     try {
         // Load carbon intensity data (Europe with real-time)
@@ -3114,11 +3213,22 @@ async function refreshData() {
             renderOptimalTimeChart(selectedRegion); // Update the new optimal time chart with real data
         }
         
-        showToast('Data refreshed successfully', 'success');
-        console.log('✅ All data refreshed');
+        // Check if we have minimal data
+        if (Object.keys(state.regions).length === 0) {
+            hasErrors = true;
+            errorMessages.push('Could not load region data');
+        }
+        
+        if (!hasErrors) {
+            showToast('Data refreshed successfully', 'success');
+            console.log('✅ All data refreshed');
+        } else {
+            showErrorBanner(`Some data failed to load: ${errorMessages.join(', ')}. Click Retry to try again.`);
+        }
         
     } catch (error) {
         console.error('❌ Refresh error:', error);
+        showErrorBanner('Failed to load data. Please check your connection and click Retry.');
         showToast('Failed to refresh data', 'error');
     } finally {
         if (refreshBtn) {

@@ -70,13 +70,16 @@
                 <section class="section" id="impact-summary">
                     <div class="impact-summary-card">
                         <div class="impact-header">
-                            <h2 class="impact-title" data-edu="carbonAwareness">Impact Summary</h2>
+                            <h2 class="impact-title">Impact Summary</h2>
                         </div>
                         <div class="impact-content">
                             <div class="impact-main-stat">
                                 <span class="impact-text">
                                     You've saved roughly <strong id="monthly-carbon-saved">Loading...</strong> this month by shifting workloads.
                                 </span>
+                                <div class="impact-baseline" id="impact-baseline">
+                                    <span class="baseline-text">Compared to running in highest-carbon region (<span id="baseline-region">eu-central-1</span>)</span>
+                                </div>
                             </div>
                             <div class="impact-equivalents">
                                 <div class="equivalent-item">
@@ -88,17 +91,9 @@
                                     <span class="equivalent-text">Would require <strong id="equivalent-trees">Loading...</strong> growing for a year to absorb.</span>
                                 </div>
                             </div>
-                            <div class="impact-methodology">
-                                <span class="methodology-disclaimer">Based on 200g CO₂/km for cars, 20kg CO₂/year per tree</span>
-                                <a href="#" onclick="showGlossaryDetail('carbonEquivalents'); return false;" class="methodology-link">How are these calculated?</a>
-                            </div>
-                            <div class="impact-action">
-                                <a href="#history" class="impact-report-link">View Full Impact Report →</a>
-                            </div>
                         </div>
                     </div>
                 </section>
-
                 <!-- Combined Stats & Insights Section -->
                 <section class="section" id="stats-insights-section">
                     <div class="section-header">
