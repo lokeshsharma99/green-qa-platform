@@ -4457,7 +4457,6 @@ function switchRegionTab(tabName) {
 
 function filterHistory() {
     const pipelineFilter = document.getElementById('pipeline-filter')?.value || 'all';
-    const statusFilter = document.getElementById('status-filter')?.value || 'all';
     const regionFilter = document.getElementById('region-filter')?.value || 'all';
     
     // Use pipelineHistory or testHistory (whichever is available)
@@ -4479,16 +4478,6 @@ function filterHistory() {
     renderTrendChart(historyData, pipelineFilter);
     
     // Apply all filters for the table
-    if (statusFilter !== 'all') {
-        filteredTests = filteredTests.filter(test => {
-            const status = test.pipeline_status || test.status || 'unknown';
-            if (statusFilter === 'optimized') return status === 'successful' || status === 'optimized';
-            if (statusFilter === 'stable') return Math.abs(((test.carbon_g || test.carbon || 0) - 500) / 500) < 0.1;
-            if (statusFilter === 'critical') return ((test.carbon_g || test.carbon || 0) - 500) / 500 > 0.2;
-            return status === statusFilter;
-        });
-    }
-    
     if (pipelineFilter !== 'all') {
         filteredTests = filteredTests.filter(test => 
             (test.pipeline_name || test.suite || 'Unknown') === pipelineFilter
