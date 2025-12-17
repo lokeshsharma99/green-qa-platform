@@ -702,15 +702,47 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .equivalent-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 12px;
     font-size: var(--text-base);
     line-height: 1.5;
     color: var(--grey-700);
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.equivalent-item:hover {
+    color: var(--black);
+}
+
+.equivalent-icon {
+    font-size: 18px;
 }
 
 .equivalent-text strong {
     color: var(--black);
     font-weight: 600;
+}
+
+.impact-methodology {
+    text-align: center;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--grey-200);
+}
+
+.methodology-link {
+    font-size: var(--text-xs);
+    color: var(--grey-500);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.methodology-link:hover {
+    color: var(--accent);
+    text-decoration: underline;
 }
 
 .impact-action {
@@ -1219,7 +1251,8 @@ h1, h2, h3, h4, h5, h6 {
     align-items: end;
     gap: 1px;
     height: 40px;
-    padding: 0 1px;
+    padding: 20px 1px 0 1px;
+    margin-top: 4px;
 }
 
 .forecast-bar {
@@ -1241,6 +1274,18 @@ h1, h2, h3, h4, h5, h6 {
 
 .forecast-bar.moderate {
     background: var(--warning);
+}
+
+.forecast-value {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--grey-700);
+    white-space: nowrap;
 }
 
 .forecast-time {
@@ -3115,6 +3160,13 @@ select.input-field {
 .data-table .text-mono {
     font-family: var(--font-mono);
     font-size: 12px;
+}
+
+/* Execution ID cell - show full value with word break */
+.execution-id-cell {
+    max-width: 200px;
+    word-break: break-all;
+    font-size: 11px !important;
 }
 
 /* Status badges */

@@ -524,27 +524,40 @@ function getStatusBadge(intensity) {
 function getCarbonEquivalents(grams) {
     /**
      * Convert carbon grams to relatable real-world equivalents
-     * Sources: EPA, DEFRA, scientific studies
+     * 
+     * STANDARDIZED FORMULAS (industry-proven):
+     * - Car: km = kg CO₂ / 0.2 (assumes 200g CO₂/km for average car)
+     * - Trees: tree-days = (kg CO₂ / 20) × 365 (assumes 20kg CO₂/year per mature tree)
+     * 
+     * Sources: EPA, DEFRA, EEA/ICCT for vehicles, forestry inventories for trees
      */
+    const kg = grams / 1000;  // Convert grams to kg for formulas
+    
+    // Car distance: km = kg CO₂ / 0.2 kg/km (200g/km average car)
+    const carKm = kg / 0.2;
+    
+    // Tree-days: (kg CO₂ / 20 kg/year) × 365 days
+    const treeDays = (kg / 20) * 365;
+    
     return {
-        // Transportation (EPA 2023 data)
-        carKm: (grams / 180).toFixed(1),           // 1 km by average car = ~180g CO₂ (was 120g - too low)
-        carMiles: (grams / 290).toFixed(1),        // 1 mile by average car = ~290g CO₂
+        // Transportation - STANDARDIZED (0.2 kg CO₂/km = 200g/km)
+        carKm: carKm.toFixed(1),
+        carMiles: (carKm * 0.621371).toFixed(1),   // Convert km to miles
         
         // Technology
-        phoneCharges: Math.round(grams / 8),       // 1 smartphone charge = ~8g CO₂ ✓
+        phoneCharges: Math.round(grams / 8),       // 1 smartphone charge = ~8g CO₂
         laptopHours: (grams / 50).toFixed(1),      // 1 hour laptop use = ~50g CO₂
         
-        // Trees (USDA Forest Service data)
-        treesYear: (grams / 21000).toFixed(2),     // 1 tree absorbs ~21kg CO₂/year (was inconsistent)
-        treeDays: (grams / 58).toFixed(1),         // 1 tree absorbs ~58g CO₂/day ✓
+        // Trees - STANDARDIZED (20 kg CO₂/year per mature tree)
+        treesYear: (kg / 20).toFixed(2),           // How many tree-years
+        treeDays: treeDays.toFixed(1),             // How many tree-days
         
         // Daily activities
-        coffeeCups: Math.round(grams / 21),        // 1 cup of coffee = ~21g CO₂ ✓
-        streamingHours: (grams / 36).toFixed(1),   // 1 hour HD streaming = ~36g CO₂ (was 55g - too high)
+        coffeeCups: Math.round(grams / 21),        // 1 cup of coffee = ~21g CO₂
+        streamingHours: (grams / 36).toFixed(1),   // 1 hour HD streaming = ~36g CO₂
         
         // Energy
-        ledBulbHours: Math.round(grams / 0.5),     // 1 hour LED bulb = ~0.5g CO₂ ✓
+        ledBulbHours: Math.round(grams / 0.5),     // 1 hour LED bulb = ~0.5g CO₂
         kwh: (grams / 400).toFixed(2)              // 1 kWh electricity (UK grid avg) = ~400g CO₂
     };
 }
@@ -1093,25 +1106,32 @@ async function updateImpactSummary() {
     if (monthlySavingsG > 0) {
         const equivalents = getCarbonEquivalents(monthlySavingsG);
         
-        // Update driving equivalent
+        // Update driving equivalent using standardized formula: km = kg / 0.2
         const drivingEl = document.getElementById('equivalent-driving');
         if (drivingEl) {
-            drivingEl.textContent = `${Math.round(parseFloat(equivalents.carKm))} km`;
+            const carKm = parseFloat(equivalents.carKm);
+            if (carKm < 1) {
+                // Show in meters for small values
+                drivingEl.textContent = `${Math.round(carKm * 1000)} m`;
+            } else {
+                drivingEl.textContent = `${carKm.toFixed(1)} km`;
+            }
         }
         
-        // Update trees equivalent
+        // Update trees equivalent using standardized formula: tree-days = (kg / 20) × 365
         const treesEl = document.getElementById('equivalent-trees');
         if (treesEl) {
-            // Trees absorb about 21kg CO₂ per year
-            // For monthly savings, calculate how many trees would absorb this amount in a year
-            const treesNeeded = monthlySavingsG / 21000; // grams to kg conversion
+            const treeDays = parseFloat(equivalents.treeDays);
             
-            if (treesNeeded < 0.1) {
-                treesEl.textContent = `${Math.round(treesNeeded * 365)} tree-days`;
-            } else if (treesNeeded < 1) {
-                treesEl.textContent = `${treesNeeded.toFixed(1)} trees`;
+            if (treeDays < 1) {
+                // Show in tree-hours for very small values
+                treesEl.textContent = `${Math.round(treeDays * 24)} tree-hours`;
+            } else if (treeDays < 365) {
+                treesEl.textContent = `${Math.round(treeDays)} tree-days`;
             } else {
-                treesEl.textContent = `${Math.round(treesNeeded)} trees`;
+                // Show in tree-years for large values
+                const treeYears = parseFloat(equivalents.treesYear);
+                treesEl.textContent = `${treeYears.toFixed(1)} tree-years`;
             }
         }
     } else {
@@ -1165,9 +1185,9 @@ function updateRegionComparison() {
     
     if (!selectedRegion) return;
     
-    // Update current region display
+    // Update current region display (show 1 decimal place for precision)
     if (currentIntensityEl) {
-        currentIntensityEl.textContent = Math.round(selectedRegion.intensity);
+        currentIntensityEl.textContent = selectedRegion.intensity.toFixed(1);
     }
     
     // Update best region display
@@ -1175,7 +1195,7 @@ function updateRegionComparison() {
         bestRegionNameEl.textContent = bestRegion.name;
     }
     if (bestIntensityEl) {
-        bestIntensityEl.textContent = Math.round(bestRegion.intensity);
+        bestIntensityEl.textContent = bestRegion.intensity.toFixed(1);
     }
     
     // Calculate and display savings
@@ -1890,59 +1910,6 @@ function renderTrendChartWithProgress(tests, progress, pipelineFilter = 'all') {
     ctx.fillText('Carbon Emissions Trend', padding.left, 8);
 }
 
-function renderPipelineCards(pipelines) {
-    const container = document.getElementById('cards-view');
-    if (!container || !pipelines || pipelines.length === 0) {
-        if (container) {
-            container.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: var(--grey-500);">
-                    <div style="font-size: 16px; margin-bottom: 8px;">No pipeline history yet</div>
-                    <div style="font-size: 14px;">Run pipelines via CI/CD to see execution data here</div>
-                </div>
-            `;
-        }
-        return;
-    }
-    
-    // Show all pipelines in cards view, most recent first
-    const sortedPipelines = [...pipelines].reverse();
-    const baseline = pipelines.slice(0, 5).reduce((sum, pipeline) => sum + (pipeline.carbon_g || pipeline.carbon || 0), 0) / 5;
-    
-    container.innerHTML = sortedPipelines.map(pipeline => {
-        const carbon = pipeline.carbon_g || pipeline.carbon || 0;
-        const energy = pipeline.energy_j || (carbon * 1000) || 0; // Estimate if not available
-        const changePercent = baseline > 0 ? ((carbon - baseline) / baseline) * 100 : 0;
-        const status = Math.abs(changePercent) < 10 ? 'stable' : (changePercent > 20 ? 'critical' : 'stable');
-        
-        // Generate pipeline ID
-        const pipelineId = pipeline.pipeline_id || pipeline.test_id || `pipeline-${Math.random().toString(36).substr(2, 6)}`;
-        const shortId = pipelineId.substring(0, 8);
-        
-        return `
-            <div class="commit-row">
-                <div>
-                    <div class="commit-id">${shortId}</div>
-                    <div class="commit-date">${formatDateTime(pipeline.timestamp || pipeline.time)}</div>
-                </div>
-                <div class="commit-metrics">
-                    <div class="commit-metric">
-                        <div class="commit-metric-label">Energy</div>
-                        <div class="commit-metric-value">${(energy / 1000).toFixed(0)} J</div>
-                    </div>
-                    <div class="commit-metric">
-                        <div class="commit-metric-label">Carbon</div>
-                        <div class="commit-metric-value">${carbon.toFixed(1)} mg</div>
-                    </div>
-                </div>
-                <div class="commit-change ${changePercent >= 0 ? 'negative' : 'positive'}">
-                    ${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(1)}%
-                </div>
-                <div class="commit-status ${status}">${status}</div>
-            </div>
-        `;
-    }).join('');
-}
-
 function renderPipelineHistoryTable(pipelines) {
     // Store in state for export
     state.pipelineHistory = pipelines;
@@ -1966,9 +1933,8 @@ function renderPipelineHistoryTable(pipelines) {
     renderHistoryMetrics(filteredForMetrics.length > 0 ? filteredForMetrics : pipelines);
     renderTrendChartAnimated(pipelines, pipelineFilter);
     
-    // Render both table and cards views (will be filtered by filterHistory if needed)
+    // Render table view only
     renderPipelineTable(pipelines);
-    renderPipelineCards(pipelines);
     
     // Apply any existing filters
     if (pipelineFilter !== 'all') {
@@ -2006,7 +1972,7 @@ function renderPipelineTable(pipelines) {
     if (!pipelines || pipelines.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="8" style="text-align: center; padding: 40px; color: var(--grey-500);">
+                <td colspan="7" style="text-align: center; padding: 40px; color: var(--grey-500);">
                     <div style="font-size: 16px; margin-bottom: 8px;">No pipeline history yet</div>
                     <div style="font-size: 14px;">Run pipelines via CI/CD to see execution data here</div>
                 </td>
@@ -2027,20 +1993,18 @@ function renderPipelineTable(pipelines) {
         const region = pipeline.optimal_region || pipeline.region || 'eu-west-2';
         const intensity = pipeline.optimal_intensity || pipeline.intensity || 0;
         const duration = pipeline.duration_minutes ? `${pipeline.duration_minutes}m` : (pipeline.duration || '--');
-        const energy = pipeline.energy_j || (pipeline.carbon_g || pipeline.carbon || 0) * 1000; // Estimate if not available
         const carbon = pipeline.optimal_sci || pipeline.carbon_g || pipeline.carbon || 0;
         
+        // Show full execution ID
         const executionId = pipeline.execution_id || pipeline.pipeline_execution_id || '--';
-        const shortExecutionId = executionId.length > 8 ? executionId.substring(0, 8) + '...' : executionId;
         
         return `
             <tr>
                 <td class="text-mono text-sm">${formatDateTime(timestamp)}</td>
                 <td>${pipelineName}</td>
-                <td class="text-mono text-sm" title="${executionId}">${shortExecutionId}</td>
+                <td class="execution-id-cell text-mono text-sm" title="Execution ID: ${executionId}">${executionId}</td>
                 <td class="text-mono">${region}</td>
                 <td class="text-mono">${duration}</td>
-                <td class="text-mono">${energy.toFixed(1)}</td>
                 <td class="text-mono">${intensity.toFixed(1)}</td>
                 <td class="text-mono">${carbon.toFixed(2)}</td>
             </tr>
@@ -2382,6 +2346,12 @@ async function renderOptimalTimeChart(selectedRegion = 'eu-west-2') {
         const maxIntensity = Math.max(...intensities);
         const height = Math.max(12, (intensity / maxIntensity) * 40); // Min 12px, max 40px
         bar.style.height = `${height}px`;
+        
+        // Add intensity value label on top of bar
+        const valueLabel = document.createElement('div');
+        valueLabel.className = 'forecast-value';
+        valueLabel.textContent = intensity.toFixed(1);
+        bar.appendChild(valueLabel);
         
         // Add time label
         const timeLabel = document.createElement('div');
@@ -3446,30 +3416,10 @@ function scheduleOptimalTime() {
 
 // Removed runTestsNow function - no longer needed
 
-function switchHistoryView(view) {
-    const tableView = document.getElementById('table-view');
-    const cardsView = document.getElementById('cards-view');
-    const tableBtn = document.getElementById('table-view-btn');
-    const cardsBtn = document.getElementById('cards-view-btn');
-    
-    if (view === 'table') {
-        tableView.style.display = 'block';
-        cardsView.style.display = 'none';
-        tableBtn.classList.add('active');
-        cardsBtn.classList.remove('active');
-    } else {
-        tableView.style.display = 'none';
-        cardsView.style.display = 'block';
-        tableBtn.classList.remove('active');
-        cardsBtn.classList.add('active');
-    }
-}
-
 // Expose functions globally for inline onclick handlers
 window.refreshData = refreshData;
 window.calculateCarbonUI = calculateCarbonUI;
 window.exportCSV = exportCSV;
-window.switchHistoryView = switchHistoryView;
 window.closeRegionModal = closeRegionModal;
 window.updateOptimalTime = updateOptimalTime;
 window.updatePotentialSavings = updatePotentialSavings;

@@ -78,13 +78,18 @@
                                     You've saved roughly <strong id="monthly-carbon-saved">Loading...</strong> this month by shifting workloads.
                                 </span>
                             </div>
-                            <div class="impact-equivalents">
-                                <div class="equivalent-item">
+                            <div class="impact-equivalents" data-edu="carbonEquivalents">
+                                <div class="equivalent-item" data-edu="carEquivalent">
+                                    <span class="equivalent-icon">🚗</span>
                                     <span class="equivalent-text">Equivalent to driving <strong id="equivalent-driving">Loading...</strong> by car.</span>
                                 </div>
-                                <div class="equivalent-item">
+                                <div class="equivalent-item" data-edu="treeEquivalent">
+                                    <span class="equivalent-icon">🌳</span>
                                     <span class="equivalent-text">Would require <strong id="equivalent-trees">Loading...</strong> growing for a year to absorb.</span>
                                 </div>
+                            </div>
+                            <div class="impact-methodology">
+                                <a href="#" onclick="showGlossaryDetail('carbonEquivalents'); return false;" class="methodology-link">How are these calculated?</a>
                             </div>
                             <div class="impact-action">
                                 <a href="#history" class="impact-report-link">View Full Impact Report →</a>
@@ -459,26 +464,21 @@
                                         <option value="eu-west-3">eu-west-3</option>
                                     </select>
                                 </div>
-                                <div class="view-toggle">
-                                    <button class="toggle-btn active" id="table-view-btn" onclick="switchHistoryView('table')">Table</button>
-                                    <button class="toggle-btn" id="cards-view-btn" onclick="switchHistoryView('cards')">Cards</button>
-                                </div>
                             </div>
                         </div>
                         
-                        <!-- Table View (Default) -->
+                        <!-- Table View -->
                         <div class="table-container" id="table-view">
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>Timestamp</th>
-                                        <th>Pipeline</th>
-                                        <th>Execution ID</th>
-                                        <th>Region</th>
-                                        <th>Duration</th>
-                                        <th>Energy (J)</th>
-                                        <th>Carbon Intensity (gCO₂/kWh)</th>
-                                        <th>Carbon Emission (g)</th>
+                                        <th>TIMESTAMP</th>
+                                        <th>PIPELINE</th>
+                                        <th title="Unique identifier for this pipeline execution">EXECUTION ID</th>
+                                        <th title="AWS region where the pipeline ran">REGION</th>
+                                        <th title="Total execution time">DURATION</th>
+                                        <th title="Carbon emissions per kWh of electricity" data-edu="carbonIntensity">CARBON INTENSITY (gCO₂/kWh)</th>
+                                        <th title="Total carbon dioxide emissions" data-edu="emissions">CARBON EMISSION (g)</th>
                                     </tr>
                                 </thead>
                                 <tbody id="history-table">
@@ -503,11 +503,6 @@
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <!-- Cards View -->
-                        <div class="commits-table" id="cards-view" style="display: none;">
-                            <!-- Dynamically populated -->
                         </div>
                     </div>
                 </section>

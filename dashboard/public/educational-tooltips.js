@@ -210,6 +210,458 @@ const EDUCATIONAL_CONTENT = {
         Runs below baseline = Good (green)
         Runs above baseline = Needs attention (red)`,
         learnMore: null
+    },
+    
+    // CO₂ Equivalents - Educational content for Impact Summary
+    carbonEquivalents: {
+        title: "Understanding CO₂ Equivalents",
+        short: "Real-world comparisons to help visualize carbon emissions",
+        detailed: `CO₂ equivalents help you understand abstract carbon numbers by comparing them to everyday activities.
+
+        🚗 CAR DRIVING EQUIVALENT
+        Formula: km = kg CO₂ ÷ 0.2
+        • An average car emits ~200g CO₂ per km (0.2 kg/km)
+        • Example: 0.6 kg CO₂ = 3 km of driving
+        
+        🌳 TREE ABSORPTION EQUIVALENT  
+        Formula: tree-days = (kg CO₂ ÷ 20) × 365
+        • A mature tree absorbs ~20 kg CO₂ per year
+        • Example: 0.6 kg CO₂ = ~11 tree-days
+        
+        These are illustrative comparisons, not formal GHG accounting.
+        Sources: EPA, DEFRA, EEA/ICCT for vehicles; forestry inventories for trees.`,
+        learnMore: "https://www.epa.gov/energy/greenhouse-gas-equivalencies-calculator"
+    },
+    
+    carEquivalent: {
+        title: "Car Driving Equivalent",
+        short: "How far a car would drive to emit the same CO₂",
+        detailed: `🚗 CAR DRIVING FORMULA
+        
+        km = kg CO₂ ÷ 0.2 kg/km
+        
+        This assumes an average petrol car emitting 200g CO₂ per km.
+        
+        Examples:
+        • 0.1 kg CO₂ = 0.5 km (500 meters)
+        • 0.6 kg CO₂ = 3 km
+        • 1.0 kg CO₂ = 5 km
+        • 10 kg CO₂ = 50 km
+        
+        Regional variations:
+        • EU new cars average: ~106 g/km
+        • US fleet average: ~250 g/km
+        • We use 200 g/km as a global average.`,
+        learnMore: "https://www.eea.europa.eu/en/topics/in-depth/transport-and-mobility"
+    },
+    
+    treeEquivalent: {
+        title: "Tree Absorption Equivalent",
+        short: "How long a tree would need to absorb this CO₂",
+        detailed: `🌳 TREE ABSORPTION FORMULA
+        
+        tree-days = (kg CO₂ ÷ 20) × 365
+        
+        This assumes a mature temperate tree absorbs ~20 kg CO₂ per year.
+        
+        Examples:
+        • 0.1 kg CO₂ = ~2 tree-days
+        • 0.6 kg CO₂ = ~11 tree-days
+        • 1.0 kg CO₂ = ~18 tree-days
+        • 20 kg CO₂ = 1 tree-year
+        
+        Note: Actual absorption varies by:
+        • Tree species (oak vs pine vs tropical)
+        • Tree age (young trees absorb less)
+        • Climate and growing conditions`,
+        learnMore: "https://www.usda.gov/media/blog/2015/03/17/power-one-tree-very-air-we-breathe"
+    },
+
+    // ============================================
+    // FUNDAMENTALS - Beginner-friendly explanations
+    // ============================================
+    
+    carbon: {
+        title: "What is Carbon (CO₂)?",
+        short: "The main greenhouse gas causing climate change",
+        detailed: `Carbon dioxide (CO₂) is like a blanket around Earth that traps heat.
+
+        🌍 THE BASICS
+        • CO₂ is released when we burn fossil fuels (coal, oil, gas)
+        • Power plants, cars, and factories all release CO₂
+        • Data centers use electricity, which often comes from fossil fuels
+        
+        💡 WHY IT MATTERS FOR SOFTWARE
+        • Every line of code you run uses electricity
+        • That electricity often comes from burning fossil fuels
+        • More efficient code = less electricity = less CO₂
+        
+        Think of it like this: Running your code is like driving a car. 
+        The more you drive, the more fuel you burn, the more CO₂ you emit.`,
+        learnMore: "https://learn.greensoftware.foundation/carbon-efficiency"
+    },
+
+    emissions: {
+        title: "What are Emissions?",
+        short: "Greenhouse gases released into the atmosphere",
+        detailed: `Emissions are gases released into the air that contribute to climate change.
+
+        🏭 TYPES OF GREENHOUSE GASES
+        • CO₂ (Carbon Dioxide) - From burning fuels, ~76% of emissions
+        • CH₄ (Methane) - From agriculture, landfills, ~16% of emissions
+        • N₂O (Nitrous Oxide) - From fertilizers, ~6% of emissions
+        • F-gases - From refrigerants, ~2% of emissions
+        
+        📊 IN SOFTWARE TERMS
+        When we talk about "carbon emissions" from software, we mean:
+        • The CO₂ released by power plants to generate electricity
+        • That electricity powers the servers running your code
+        
+        We measure emissions in grams (g) or kilograms (kg) of CO₂.`,
+        learnMore: "https://learn.greensoftware.foundation/carbon-efficiency"
+    },
+
+    ghgProtocol: {
+        title: "GHG Protocol",
+        short: "The global standard for measuring carbon emissions",
+        detailed: `The GHG Protocol is like a rulebook for counting carbon emissions.
+
+        📏 WHAT IT DOES
+        • Provides standard methods to measure emissions
+        • Used by 92% of Fortune 500 companies
+        • Created by World Resources Institute & WBCSD
+        
+        🎯 THE THREE SCOPES
+        • Scope 1: Direct emissions (your own fuel burning)
+        • Scope 2: Electricity emissions (power you buy)
+        • Scope 3: Everything else (supply chain, travel, etc.)
+        
+        💻 FOR SOFTWARE
+        Your cloud computing falls under Scope 2 (electricity) and 
+        Scope 3 (cloud provider's infrastructure).`,
+        learnMore: "https://ghgprotocol.org/"
+    },
+
+    scope1: {
+        title: "Scope 1 Emissions",
+        short: "Direct emissions from sources you own or control",
+        detailed: `Scope 1 = Emissions from things YOU directly burn or release.
+
+        🔥 EXAMPLES
+        • Company vehicles burning petrol/diesel
+        • On-site generators burning fuel
+        • Gas boilers heating your office
+        • Refrigerant leaks from AC units
+        
+        💻 FOR MOST SOFTWARE COMPANIES
+        Scope 1 is usually small because you don't burn much fuel directly.
+        Most of your emissions come from Scope 2 (electricity) and Scope 3 (cloud).`,
+        learnMore: "https://ghgprotocol.org/scope-1-and-scope-2-inventory-guidance"
+    },
+
+    scope2: {
+        title: "Scope 2 Emissions",
+        short: "Indirect emissions from purchased electricity",
+        detailed: `Scope 2 = Emissions from the electricity you buy.
+
+        ⚡ HOW IT WORKS
+        • You buy electricity from the grid
+        • Power plants generate that electricity
+        • Those plants may burn coal, gas, or use renewables
+        • The emissions from generation are your Scope 2
+        
+        💻 FOR SOFTWARE
+        • Running servers in your office = Scope 2
+        • Your office lights and AC = Scope 2
+        • Cloud computing is usually Scope 3 (it's the cloud provider's Scope 2)
+        
+        📊 TWO WAYS TO MEASURE
+        • Location-based: Average grid emissions where you are
+        • Market-based: Based on your energy contracts/RECs`,
+        learnMore: "https://ghgprotocol.org/scope-1-and-scope-2-inventory-guidance"
+    },
+
+    scope3: {
+        title: "Scope 3 Emissions",
+        short: "All other indirect emissions in your value chain",
+        detailed: `Scope 3 = Everything else not in Scope 1 or 2.
+
+        🌐 THIS IS THE BIG ONE
+        Scope 3 is typically 70-90% of a company's total emissions!
+        
+        📦 EXAMPLES
+        • Cloud computing (AWS, Azure, GCP)
+        • Business travel
+        • Employee commuting
+        • Purchased goods and services
+        • Product use by customers
+        • Waste disposal
+        
+        💻 FOR SOFTWARE COMPANIES
+        Your cloud infrastructure is Scope 3 - it's the cloud provider's 
+        Scope 1 & 2, but YOUR Scope 3.
+        
+        This dashboard helps you reduce your Scope 3 cloud emissions!`,
+        learnMore: "https://ghgprotocol.org/scope-3-calculation-guidance"
+    },
+
+    energy: {
+        title: "Energy (kWh)",
+        short: "The electricity consumed, measured in kilowatt-hours",
+        detailed: `Energy is measured in kilowatt-hours (kWh) - think of it as "electricity units".
+
+        💡 WHAT IS A kWh?
+        • 1 kWh = running a 1000W appliance for 1 hour
+        • A laptop uses about 50W, so 20 hours = 1 kWh
+        • A server might use 200-500W continuously
+        
+        🔌 EXAMPLES
+        • Charging your phone: ~0.01 kWh
+        • Running a laptop for 1 hour: ~0.05 kWh
+        • Running a CI/CD pipeline: ~0.1-1 kWh
+        • Training an AI model: 100-1000+ kWh
+        
+        📊 THE FORMULA
+        Carbon = Energy (kWh) × Carbon Intensity (gCO₂/kWh)
+        
+        Less energy = less carbon (always)
+        Same energy + cleaner grid = less carbon`,
+        learnMore: "https://learn.greensoftware.foundation/energy-efficiency"
+    },
+
+    carbonFactors: {
+        title: "Carbon Emission Factors",
+        short: "Conversion rates from energy to carbon emissions",
+        detailed: `Emission factors tell you how much CO₂ is released per unit of energy.
+
+        📊 THE KEY FORMULA
+        Carbon (g) = Energy (kWh) × Emission Factor (gCO₂/kWh)
+        
+        🌍 EXAMPLE FACTORS BY REGION
+        • Sweden: ~20 gCO₂/kWh (mostly hydro/nuclear)
+        • France: ~50 gCO₂/kWh (mostly nuclear)
+        • UK: ~200 gCO₂/kWh (mixed)
+        • Germany: ~350 gCO₂/kWh (coal/gas)
+        • Poland: ~700 gCO₂/kWh (coal heavy)
+        
+        🏢 AWS DATACENTER ADJUSTMENT
+        We also factor in:
+        • PUE (1.15) - datacenter overhead
+        • AWS renewable energy purchases
+        
+        Final = Grid Intensity × (1 - Renewable%) × PUE`,
+        learnMore: "https://www.cloudcarbonfootprint.org/docs/methodology"
+    },
+
+    awsEfficiency: {
+        title: "AWS Data Center Efficiency",
+        short: "Why cloud is greener than on-premises",
+        detailed: `AWS data centers are much more efficient than typical corporate data centers.
+
+        📊 THE NUMBERS (2024)
+        • AWS PUE: 1.15 (only 15% overhead)
+        • Industry average: 1.25
+        • On-premises: 1.63
+        
+        🌱 WHY AWS IS GREENER
+        • 100% renewable energy matching (2024)
+        • Custom efficient chips (Graviton, Inferentia)
+        • Advanced cooling systems
+        • Higher server utilization (less waste)
+        • Continuous efficiency improvements
+        
+        💡 THE RESULT
+        AWS estimates customers can reduce carbon footprint by up to 
+        80% compared to running the same workloads on-premises.`,
+        learnMore: "https://sustainability.aboutamazon.com/2024-amazon-sustainability-report-aws-summary.pdf"
+    },
+
+    netZero: {
+        title: "Net Zero",
+        short: "Balancing emissions with removals to reach zero",
+        detailed: `Net Zero means removing as much CO₂ as you emit.
+
+        ⚖️ THE CONCEPT
+        Emissions Released - Emissions Removed = 0
+        
+        🎯 HOW TO GET THERE
+        1. Reduce emissions as much as possible (efficiency)
+        2. Switch to renewable energy
+        3. Offset remaining emissions (carbon credits)
+        4. Invest in carbon removal (trees, technology)
+        
+        🌍 AMAZON'S COMMITMENT
+        • Net-zero carbon by 2040 (10 years ahead of Paris Agreement)
+        • 100% renewable energy by 2025 ✓ (achieved early!)
+        • Climate Pledge signed by 500+ companies`,
+        learnMore: "https://sustainability.aboutamazon.com/climate-pledge"
+    },
+
+    co2e: {
+        title: "CO₂ Equivalent (CO₂e)",
+        short: "A standard unit for comparing different greenhouse gases",
+        detailed: `CO₂e lets us compare different greenhouse gases on the same scale.
+
+        🔄 WHY WE NEED IT
+        Different gases trap different amounts of heat:
+        • CO₂ = 1x (baseline)
+        • Methane (CH₄) = 28x more potent
+        • Nitrous Oxide (N₂O) = 265x more potent
+        • Some F-gases = 23,000x more potent!
+        
+        📊 THE CONVERSION
+        CO₂e = Amount of gas × Global Warming Potential (GWP)
+        
+        Example: 1 kg of methane = 28 kg CO₂e
+        
+        💻 FOR THIS DASHBOARD
+        We primarily track CO₂ from electricity, so CO₂ ≈ CO₂e.
+        The "e" reminds us we're using a standardized measure.`,
+        learnMore: "https://learn.greensoftware.foundation/carbon-efficiency"
+    },
+
+    functionalUnit: {
+        title: "Functional Unit (R in SCI)",
+        short: "What you measure carbon emissions per",
+        detailed: `The functional unit is the "per what" in your carbon measurement.
+
+        📏 THE SCI FORMULA
+        SCI = ((E × I) + M) per R
+        
+        R = Your functional unit
+        
+        🎯 EXAMPLES
+        • Per API call
+        • Per user
+        • Per transaction
+        • Per pipeline run
+        • Per 1000 requests
+        
+        💡 WHY IT MATTERS
+        Without a functional unit, you can't compare:
+        • Is 100g CO₂ good or bad?
+        • It depends! Per user? Per million requests?
+        
+        This dashboard uses "per pipeline run" as the functional unit.`,
+        learnMore: "https://sci.greensoftware.foundation/"
+    },
+
+    greenSoftwareFoundation: {
+        title: "Green Software Foundation",
+        short: "The organization behind green software standards",
+        detailed: `The Green Software Foundation (GSF) creates standards for sustainable software.
+
+        🏛️ WHO THEY ARE
+        • Non-profit under Linux Foundation
+        • Founded by Microsoft, GitHub, Accenture, Thoughtworks
+        • Members include AWS, Google, Intel, and 40+ organizations
+        
+        📚 WHAT THEY DO
+        • Created the SCI specification
+        • Publish green software patterns
+        • Provide free training and certification
+        • Build open-source tools
+        
+        🎓 FREE RESOURCES
+        • Green Software Practitioner certification
+        • Carbon Aware SDK
+        • Impact Framework`,
+        learnMore: "https://greensoftware.foundation/"
+    },
+
+    marginalEmissions: {
+        title: "Marginal vs Average Emissions",
+        short: "Two ways to measure grid carbon intensity",
+        detailed: `There are two ways to calculate carbon intensity - and they give different answers!
+
+        📊 AVERAGE EMISSIONS
+        Total grid emissions ÷ Total electricity generated
+        • Simpler to calculate
+        • Good for reporting
+        • Used by most carbon calculators
+        
+        📈 MARGINAL EMISSIONS
+        Emissions from the NEXT unit of electricity
+        • More accurate for decision-making
+        • Shows impact of your specific demand
+        • Usually higher than average
+        
+        💡 WHICH TO USE?
+        • For reporting: Average (location-based)
+        • For optimization: Marginal (shows real impact)
+        
+        This dashboard uses average intensity for simplicity.`,
+        learnMore: "https://www.electricitymaps.com/blog/marginal-vs-average-real-time-decision-making"
+    },
+
+    carbonBudget: {
+        title: "Carbon Budget",
+        short: "The total CO₂ we can emit to limit warming",
+        detailed: `The carbon budget is like a global "spending limit" for CO₂.
+
+        🌡️ THE SCIENCE
+        To limit warming to 1.5°C, we can only emit ~400 billion more tonnes of CO₂.
+        At current rates, we'll use this up in about 10 years.
+        
+        📊 WHAT THIS MEANS
+        • Every tonne of CO₂ matters
+        • We need to reduce emissions by ~50% by 2030
+        • Net zero by 2050 is essential
+        
+        💻 FOR SOFTWARE
+        The tech sector is ~2-4% of global emissions (similar to aviation).
+        As software grows, so does its share of the carbon budget.
+        
+        Every optimization you make helps preserve the budget!`,
+        learnMore: "https://www.ipcc.ch/sr15/"
+    },
+
+    vcpu: {
+        title: "vCPU (Virtual CPU)",
+        short: "A share of a physical processor in the cloud",
+        detailed: `A vCPU is a portion of a real CPU that's allocated to your workload.
+
+        💻 HOW IT WORKS
+        • Physical servers have multiple CPU cores
+        • Cloud providers divide these into vCPUs
+        • You rent vCPUs, not whole servers
+        
+        ⚡ ENERGY IMPACT
+        More vCPUs = More energy = More carbon
+        
+        📊 TYPICAL POWER USAGE
+        • 1 vCPU at 100% ≈ 5-10 watts
+        • Idle vCPU ≈ 1-2 watts
+        • Depends on chip type (Graviton is more efficient!)
+        
+        💡 OPTIMIZATION TIP
+        Right-size your instances! Using 8 vCPUs when you need 2 
+        wastes energy and money.`,
+        learnMore: "https://www.cloudcarbonfootprint.org/docs/methodology"
+    },
+
+    tdp: {
+        title: "TDP (Thermal Design Power)",
+        short: "Maximum power a processor can use",
+        detailed: `TDP tells you the maximum watts a chip will consume.
+
+        🔌 WHAT IT MEANS
+        • TDP 100W = chip can use up to 100 watts
+        • Used for cooling system design
+        • Actual usage is usually lower
+        
+        📊 EXAMPLE TDPs
+        • Intel Xeon (server): 150-250W
+        • AMD EPYC (server): 120-280W
+        • AWS Graviton3: ~100W (estimated)
+        • Laptop CPU: 15-45W
+        
+        💡 FOR CARBON CALCULATIONS
+        We use TDP to estimate energy consumption:
+        Energy = TDP × Utilization × Time
+        
+        Lower TDP chips (like Graviton) = less energy = less carbon`,
+        learnMore: "https://www.cloudcarbonfootprint.org/docs/methodology"
     }
 };
 
